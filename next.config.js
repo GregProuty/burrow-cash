@@ -35,7 +35,7 @@ module.exports = {
     return [
       {
         source: "/",
-        destination: "/markets",
+        destination: "/unstaking",
         permanent: true,
       },
     ];

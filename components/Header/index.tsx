@@ -99,17 +99,17 @@ const Header = () => {
             <WalletButton />
             <Set />
           </Box>
-          <Snackbar
-            open={open}
-            autoHideDuration={2000}
-            onClose={handleClose}
-            anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-          >
-            <div className="flex items-center justify-center border border-dark-300 text-sm text-white rounded-md bg-dark-100 px-4 py-3.5">
-              <RefreshIcon className="mr-2.5 flex-shrink-0 animate-spin h-5 w-5" /> Refreshing
-              assets data...
-            </div>
-          </Snackbar>
+          {/*<Snackbar*/}
+          {/*  open={open}*/}
+          {/*  autoHideDuration={2000}*/}
+          {/*  onClose={handleClose}*/}
+          {/*  anchorOrigin={{ vertical: "bottom", horizontal: "center" }}*/}
+          {/*>*/}
+          {/*  <div className="flex items-center justify-center border border-dark-300 text-sm text-white rounded-md bg-dark-100 px-4 py-3.5">*/}
+          {/*    <RefreshIcon className="mr-2.5 flex-shrink-0 animate-spin h-5 w-5" /> Refreshing*/}
+          {/*    assets data...*/}
+          {/*  </div>*/}
+          {/*</Snackbar>*/}
         </Wrapper>
       </div>
       {/* mobile */}
