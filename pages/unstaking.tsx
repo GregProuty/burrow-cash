@@ -96,7 +96,7 @@ const StakingNative = () => {
         }}>Validator:</label>
         <select name="dropdown" id="dropdown" defaultValue={"stardust.poolv1.near"} onChange={(val) => {
           console.log('changed selected validator', val)
-          setSelectedValidator(val)
+          setSelectedValidator(val.target.value)
         }}>
           <option value="stardust.poolv1.near">stardust.poolv1.near</option>
           <option value="hurry">Hurry</option>
