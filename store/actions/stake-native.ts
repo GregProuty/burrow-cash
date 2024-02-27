@@ -28,7 +28,7 @@ export async function stakeNative({ amount, validatorAddress }: { amount: string
   //   } tokenAmount:${expandToken(amount, config.booster_decimals)}`,
   // );
 
-  const withYoctos = nearAPI.utils.format.parseNearAmount(amount)
+  const withYoctos = nearAPI.utils.format.parseNearAmount(amount)?.toString() as string
   console.log('aloha withYoctos', withYoctos)
 
   transactions.push({
@@ -42,7 +42,7 @@ export async function stakeNative({ amount, validatorAddress }: { amount: string
           // amount: expandToken(amount, config.booster_decimals),
           // withYoctos,
         },
-        attachedDeposit: new BN(withYoctos),
+        attachedDeposit: new BN(withYoctos, 10),
         // attachedDeposit: withYoctos,
       },
     ],
