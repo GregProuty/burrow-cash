@@ -38,23 +38,40 @@ const StakingNative = () => {
   // const disabledUnstake = !BRRR || DateTime.now() < unstakeDate;
   const disabledUnstake = false
 
+  // added for the near native staking
   const [selectedValidator, setSelectedValidator] = useState("stardust.poolv1.near")
-
-  const handleUnstake = async () => {
+  const [amountToStake, setAmountToStake] = useState("1")
+  const [amountToUnstake, setAmountToUnstake] = useState("1")
+  const [amountToWithdraw, setAmountToWithdraw] = useState("1")
+  const handleStake = async () => {
     try {
-      trackUnstake();
-      await unstakeNative();
+      // trackUnstake();
+      await stakeNative({
+        amount: amountToStake,
+        validatorAddress: selectedValidator,
+      });
       setLoadingUnstake(true);
     } catch (e) {
       console.error(e);
     }
   };
 
-  const handleStake = async () => {
+  const handleUnstake = async () => {
     try {
       // trackUnstake();
+      await unstakeNative({amount: amountToUnstake, validatorAddress: selectedValidator});
+      setLoadingUnstake(true);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    try {
+      // trackUnstake();
+      // TODO
       await stakeNative({
-        amount: "19",
+        amount: amountToWithdraw,
         validatorAddress: selectedValidator,
       });
       setLoadingUnstake(true);
@@ -129,7 +146,9 @@ const StakingNative = () => {
                 padding: "6px",
                 margin: "6px",
                 color: "black",
-            }} defaultValue={"1"} />
+            }} defaultValue={"1"} onChange={el => {
+              setAmountToStake(el.target.value)
+            }} />
             {accountId ? (
               <CustomButton
                 // onClick={() => setModal({ name: "staking" })}
@@ -152,7 +171,7 @@ const StakingNative = () => {
             value2={BRRR ? unstakeDate.toFormat("yyyy-MM-dd / HH:mm") : ""}
           >
             <CustomButton
-              onClick={handleUnstake}
+              onClick={() => handleUnstake()}
               className="w-full"
               // disabled={disabledUnstake}
               color="info"
@@ -218,12 +237,12 @@ const StakingBox = ({
       <div className="flex justify-between flex-col h-full">
         <div className="flex justify-end lg:justify-between mb-3">
           <div className={twMerge("hidden md:block relative", disabled && "opacity-60")}>
-            <BrrrLogo color="#D2FF3A" />
-            {logoIcon && (
-              <div className="absolute" style={{ bottom: 8, right: -8 }}>
-                {logoIcon}
-              </div>
-            )}
+            {/*<BrrrLogo color="#D2FF3A" />*/}
+            {/*{logoIcon && (*/}
+            {/*  <div className="absolute" style={{ bottom: 8, right: -8 }}>*/}
+            {/*    {logoIcon}*/}
+            {/*  </div>*/}
+            {/*)}*/}
           </div>
           <div className="flex justify-between w-full md:text-right md:block">
             <div className="h5 text-gray-300" style={{ fontSize: 14 }}>

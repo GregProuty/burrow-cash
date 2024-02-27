@@ -4,8 +4,8 @@
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
-    "strict": false, // Disabled strict type-checking options
-    "forceConsistentCasingInFileNames": false, // Allows inconsistent casing in filenames
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
     "noEmit": true,
     "incremental": true,
     "esModuleInterop": true,
@@ -14,15 +14,7 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "moduleResolution": "node",
-    "noImplicitAny": false, // Allows implicit 'any' types
-    "noImplicitThis": false, // Allows 'this' to be of type 'any'
-    "noImplicitReturns": false, // Does not require all code paths in a function to return a value
-    "noStrictGenericChecks": true, // Disables strict checking of generic signatures in function calls
-    "strictNullChecks": false, // Disables strict null checking
-    "strictFunctionTypes": false, // Disables strict checking of function types
-    "strictBindCallApply": false, // Allows incorrect argument types for bind, call, and apply
-    "strictPropertyInitialization": false, // Does not require class properties to be initialized in the constructor
-    "allowSyntheticDefaultImports": true // Allow default imports from modules with no default export
+    "noImplicitAny": false
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules"]

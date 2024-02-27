@@ -6,6 +6,7 @@ import { ChangeMethodsLogic } from "../../interfaces";
 import { Transaction } from "../wallet";
 import { prepareAndExecuteTransactions } from "../tokens";
 import * as nearAPI from 'near-api-js'
+import BN from "bn.js";
 
 export async function stakeNative({ amount, validatorAddress }: { amount: string; validatorAddress: string }) {
   console.log('aloha top of stake native. amount', amount)
@@ -26,19 +27,28 @@ export async function stakeNative({ amount, validatorAddress }: { amount: string
   //     config.booster_decimals
   //   } tokenAmount:${expandToken(amount, config.booster_decimals)}`,
   // );
+
+  const withYoctos = nearAPI.utils.format.parseNearAmount(amount)
+  console.log('aloha withYoctos', withYoctos)
+
   transactions.push({
     receiverId: validatorAddress,
     functionCalls: [
       {
-        methodName: ChangeMethodsLogic[ChangeMethodsLogic.account_stake_booster],
+        // methodName: ChangeMethodsLogic[ChangeMethodsLogic.account_stake_booster],
+        methodName: 'deposit_and_stake',
         args: {
           receiver_id: validatorAddress,
           // amount: expandToken(amount, config.booster_decimals),
-          amount,
+          // withYoctos,
         },
+        attachedDeposit: new BN(withYoctos),
+        // attachedDeposit: withYoctos,
       },
     ],
   });
 
-  // await prepareAndExecuteTransactions(transactions);
+  console.log('aloha transactions', transactions)
+
+  await prepareAndExecuteTransactions(transactions);
 }
