@@ -197,8 +197,21 @@ const StakingNative = () => {
           setSelectedValidator(val.target.value)
         }}>
           <option value="stardust.poolv1.near">stardust.poolv1.near</option>
-          <option value="hurry">Hurry</option>
-          <option value="upmike">Up, Mike</option>
+          <option value="udhc1.pool.near">udhc1.pool.near</option>
+          <option value="nearua.poolv1.near">nearua.poolv1.near</option>
+          <option value="sharpdarts.poolv1.near">sharpdarts.poolv1.near</option>
+          <option value="nearweek.poolv1.near">nearweek.poolv1.near</option>
+          <option value="calimero.poolv1.near">calimero.poolv1.near</option>
+          <option value="shardlabs.poolv1.near">shardlabs.poolv1.near</option>
+          <option value="hashquark.poolv1.near">hashquark.poolv1.near</option>
+          <option value="everstake.poolv1.near">everstake.poolv1.near</option>
+          <option value="chorusone.poolv1.near">chorusone.poolv1.near</option>
+          <option value="nodeasy.poolv1.near">nodeasy.poolv1.near</option>
+          <option value="consensus_finoa_01.poolv1.near">consensus_finoa_01.poolv1.near</option>
+          <option value="consensus_finoa_00.poolv1.near">consensus_finoa_00.poolv1.near</option>
+          <option value="ledgerbyfigment.poolv1.near">ledgerbyfigment.poolv1.near</option>
+          <option value="fish.poolv1.near">fish.poolv1.near</option>
+          <option value="masternode24.poolv1.near">masternode24.poolv1.near</option>
         </select>
       </div>
       <div>
