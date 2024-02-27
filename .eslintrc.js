@@ -23,7 +23,7 @@ module.exports = {
   },
   plugins: ["react", "@typescript-eslint", "prettier"],
   rules: {
-    camelcase: "never",
+    camelcase: 0,
     "prettier/prettier": ["never", { endOfLine: "auto" }],
     "object-curly-spacing": "off",
     "no-unused-vars": "never",
