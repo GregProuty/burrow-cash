@@ -38,7 +38,7 @@ import CopyToClipboardComponent from "./CopyToClipboardComponent";
 
 const config = getConfig();
 
-const WalletContext = createContext(null) as any;
+export const WalletContext = createContext(null) as any;
 const WalletButton = () => {
   const theme = useTheme();
   const dispatch = useAppDispatch();

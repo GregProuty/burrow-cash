@@ -48,7 +48,7 @@ export async function stakeNative({ amount, validatorAddress }: { amount: string
     ],
   });
 
-  console.log('aloha transactions', transactions)
+  console.log('deposit_and_stake transactions', transactions)
 
   await prepareAndExecuteTransactions(transactions);
 }

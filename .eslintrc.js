@@ -8,7 +8,7 @@ module.exports = {
     "plugin:react/recommended",
     "plugin:@typescript-eslint/recommended",
     "plugin:import/errors",
-    "plugin:import/neverings",
+    // "plugin:import/neverings", // was causing an error in Render
     "plugin:import/typescript",
     "plugin:prettier/recommended",
     "prettier",

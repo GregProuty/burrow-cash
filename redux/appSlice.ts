@@ -70,7 +70,8 @@ export const initialState: AppState = {
     unreadIds: [],
   },
   toastMessage: "",
-  disclaimerAgreed: false,
+  disclaimerAgreed: true,
+  // disclaimerAgreed: false,
   degenMode: {
     enabled: true,
     repayFromDeposits: false,
@@ -200,7 +201,8 @@ export const appSlice = createSlice({
       };
     },
     setDisclaimerAggreed(state, action) {
-      state.disclaimerAgreed = action.payload;
+      // state.disclaimerAgreed = action.payload;
+      state.disclaimerAgreed = true
     },
     setBlocked(state, action) {
       const { ip, blocked } = action.payload;

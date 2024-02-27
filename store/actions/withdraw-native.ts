@@ -6,9 +6,9 @@ import { Transaction } from "../wallet";
 import { prepareAndExecuteTransactions } from "../tokens";
 import * as nearAPI from 'near-api-js'
 
-export async function unstakeNative({ amount, validatorAddress }: { amount: string; validatorAddress: string }) {
-  console.log('aloha our new unstake. amount', amount)
-  console.log('aloha our new unstake. validatorAddress', validatorAddress)
+export async function withdrawNative({ amount, validatorAddress }: { amount: string; validatorAddress: string }) {
+  console.log('aloha withdraw. amount', amount)
+  console.log('aloha withdraw. validatorAddress', validatorAddress)
   // const { logicContract } = await getBurrow();
 
   const withYoctos = nearAPI.utils.format.parseNearAmount(amount)?.toString() as string
@@ -19,7 +19,7 @@ export async function unstakeNative({ amount, validatorAddress }: { amount: stri
     functionCalls: [
       {
         // methodName: ChangeMethodsLogic[ChangeMethodsLogic.account_unstake_booster],
-        methodName: 'unstake',
+        methodName: 'withdraw',
         args: {
           receiver_id: validatorAddress,
           amount: withYoctos,
@@ -28,7 +28,7 @@ export async function unstakeNative({ amount, validatorAddress }: { amount: stri
     ],
   });
 
-  console.log('unstake transactions', transactions)
+  console.log('withdraw transactions', transactions)
 
   await prepareAndExecuteTransactions(transactions);
 }

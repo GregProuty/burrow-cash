@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { Stack, Typography, Box, useTheme } from "@mui/material";
 import { DateTime } from "luxon";
 import styled from "styled-components";
@@ -20,9 +20,17 @@ import ModalStaking from "../screens/Staking/modalStaking";
 import { modalProps } from "../interfaces/common";
 import { LockIcon, Mascot, UnlockIcon } from "../components/Icons/Icons";
 import { formatAPYValue, isMobileDevice } from "../helpers/helpers";
-import { ConnectWalletButton } from "../components/Header/WalletButton";
+import { ConnectWalletButton, WalletContext } from "../components/Header/WalletButton";
 import { BrrrLogo } from "../screens/Staking/components";
 import { stakeNative } from "../store/actions/stake-native";
+import { withdrawNative } from "../store/actions/withdraw-native";
+import { getAccountBalance } from "../redux/accountSelectors";
+import * as nearAPI from 'near-api-js'
+import { defaultNetwork } from "../utils/config";
+import { Near } from "near-api-js/lib/near";
+import { Account } from "near-api-js";
+
+const nodeUrl = "https://rpc.mainnet.near.org"
 
 const StakingNative = () => {
   const [total, totalUnclaim, totalToken] = useAppSelector(getTotalBRRR);
@@ -43,7 +51,74 @@ const StakingNative = () => {
   const [amountToStake, setAmountToStake] = useState("1")
   const [amountToUnstake, setAmountToUnstake] = useState("1")
   const [amountToWithdraw, setAmountToWithdraw] = useState("1")
+
+  // const [nearProvider, setNearProvider] = useState(null)
+  const [nearConn, setNearConn] = useState<Near | null>(null)
+  const [accountConn, setAccountConn] = useState<Account | null>(null)
+  const [formattedStakedBalance, setFormattedStakedBalance] = useState<string | null>(null)
+
+  // const context = useContext(WalletContext);
+  // console.log('aloha context', context)
+  const balance = useAppSelector(getAccountBalance);
+  const formattedBalance = Number.parseFloat(balance).toFixed(2)
+  console.log('aloha balance', balance)
+  console.log('aloha formattedBalance', formattedBalance)
+
+  useEffect(() => {
+    const start = async () => {
+      const provider = new nearAPI.providers.JsonRpcProvider({
+        url: nodeUrl
+      })
+
+      // So we can use it later
+      // setNearProvider(provider)
+
+      const nearConn = await nearAPI.connect({
+        networkId: defaultNetwork,
+        nodeUrl: nodeUrl,
+        keyStore: new nearAPI.keyStores.InMemoryKeyStore(),
+        headers: {}
+      })
+
+      setNearConn(nearConn)
+      // we just need this to query, but you must supply something valid
+      const accountConn = await nearConn.account("mike.near")
+      setAccountConn(accountConn)
+      // accountConn.viewFunction(selectedValidator,)
+    }
+    start()
+  }, []);
+
+  useEffect(() => {
+    if (!accountConn) return
+    // when they change validators, see if there's an
+    // unstaked balance and withdraw balance
+
+    const start = async () => {
+      const stakedBalance = await accountConn.viewFunction(
+        selectedValidator,
+        "get_account_staked_balance",
+        { account_id: accountId },
+        // blockQuery: {finality: "final"}
+      )
+      console.log('aloha stakedBalance', stakedBalance)
+      const myFormattedStakedBalance = nearAPI.utils.format.formatNearAmount(stakedBalance, 2)
+      console.log('aloha formattedStakedBalance', myFormattedStakedBalance)
+      setFormattedStakedBalance(myFormattedStakedBalance)
+      // const stakedBalance = await accountConn.viewFunction({
+      //   contractId: selectedValidator,
+      //   methodName: "get_account_staked_balance",
+      //   args: { account_id: accountId },
+      //   blockQuery: {finality: "final"}
+      // })
+      // console.log('aloha stakedBalance', stakedBalance)
+    }
+
+    start()
+  }, [selectedValidator, accountConn]);
+
   const handleStake = async () => {
+
     try {
       // trackUnstake();
       await stakeNative({
@@ -57,6 +132,12 @@ const StakingNative = () => {
   };
 
   const handleUnstake = async () => {
+    console.log('unstake for accountId', accountId)
+    if (!accountId) {
+      console.log('need to log in')
+      return
+    }
+
     try {
       // trackUnstake();
       await unstakeNative({amount: amountToUnstake, validatorAddress: selectedValidator});
@@ -70,7 +151,7 @@ const StakingNative = () => {
     try {
       // trackUnstake();
       // TODO
-      await stakeNative({
+      await withdrawNative({
         amount: amountToWithdraw,
         validatorAddress: selectedValidator,
       });
@@ -94,7 +175,7 @@ const StakingNative = () => {
   //     </div>
   //   );
   // }
-  const totalAmount = Number(BRRR) + Number(total);
+  // const totalAmount = Number(BRRR) + Number(total);
 
   return (
     <LayoutContainer>
@@ -136,7 +217,7 @@ const StakingNative = () => {
         <div className="md:flex justify-center gap-4 md:gap-6">
           <StakingBox
             text1="💰 Available"
-            value1={total > 0 ? total.toLocaleString(undefined, TOKEN_FORMAT) : 0}
+            value1={formattedBalance}
             // text2="Your APY"
             // value2={`${formatAPYValue(stakingNetAPY + stakingNetTvlAPY)}%`}
             value2ClassName="text-primary"
@@ -144,7 +225,7 @@ const StakingNative = () => {
             <input id={"stakeNative"} type={"text"} style={{
                 backgroundColor: "white",
                 padding: "6px",
-                margin: "6px",
+                marginBottom: "6px",
                 color: "black",
             }} defaultValue={"1"} onChange={el => {
               setAmountToStake(el.target.value)
@@ -157,7 +238,8 @@ const StakingNative = () => {
                 // disabled={!total}
               >Stake NEAR</CustomButton>
             ) : (
-              <ConnectWalletButton accountId={accountId} className="w-full" />
+              <p>Login please</p>
+              // <ConnectWalletButton accountId={accountId} className="w-full" />
             )}
           </StakingBox>
 
@@ -166,16 +248,60 @@ const StakingNative = () => {
             logoIcon={disabledUnstake ? <LockIcon /> : <UnlockIcon />}
             // disabled={BRRR === 0}
             text1="🔒 Staking"
-            value1={BRRR ? BRRR.toLocaleString(undefined, TOKEN_FORMAT) : 0}
-            text2={BRRR ? "Due to" : ""}
-            value2={BRRR ? unstakeDate.toFormat("yyyy-MM-dd / HH:mm") : ""}
+            value1={formattedStakedBalance}
+            // value1={BRRR ? BRRR.toLocaleString(undefined, TOKEN_FORMAT) : 0}
+            // text2={BRRR ? "Due to" : ""}
+            // value2={BRRR ? unstakeDate.toFormat("yyyy-MM-dd / HH:mm") : ""}
           >
-            <CustomButton
-              onClick={() => handleUnstake()}
-              className="w-full"
-              // disabled={disabledUnstake}
-              color="info"
-            >Unstake NEAR</CustomButton>
+            <input id={"unstakeNative"} type={"text"} style={{
+              backgroundColor: "white",
+              padding: "6px",
+              marginBottom: "6px",
+              color: "black",
+            }} defaultValue={"1"} onChange={el => {
+              setAmountToUnstake(el.target.value);
+            }} />
+            {accountId ? (
+              <CustomButton
+                onClick={() => handleUnstake()}
+                className="w-full"
+                // disabled={disabledUnstake}
+                color="info"
+              >Unstake NEAR</CustomButton>
+            ) : (
+              <p>Login please</p>
+              // <ConnectWalletButton accountId={accountId} className="w-full" />
+            )}
+          </StakingBox>
+
+          <StakingBox
+            // logoIcon={disabledUnstake ? <LockIcon /> : <UnlockIcon />}
+            // logoIcon={disabledUnstake ? <LockIcon /> : <UnlockIcon />}
+            // disabled={BRRR === 0}
+            text1="Withdraw"
+            // value1={BRRR ? BRRR.toLocaleString(undefined, TOKEN_FORMAT) : 0}
+            // text2={BRRR ? "Due to" : ""}
+            // value2={BRRR ? unstakeDate.toFormat("yyyy-MM-dd / HH:mm") : ""}
+          >
+            <input id={"withdrawNative"} type={"text"} style={{
+              backgroundColor: "white",
+              padding: "6px",
+              marginBottom: "6px",
+              color: "black",
+            }} defaultValue={"1"} onChange={el => {
+              setAmountToWithdraw(el.target.value);
+            }} />
+            {accountId ? (
+              <CustomButton
+                onClick={() => handleWithdraw()}
+                className="w-full"
+                // disabled={disabledUnstake}
+                color="info"
+              >Withdraw NEAR</CustomButton>
+            ) : (
+              <p>Login please</p>
+              // <ConnectWalletButton accountId={accountId} className="w-full" />
+            )}
           </StakingBox>
 
           {/* <StakingBox */}
