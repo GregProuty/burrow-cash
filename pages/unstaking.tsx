@@ -90,7 +90,7 @@ const StakingNative = () => {
   }, []);
 
   useEffect(() => {
-    if (!accountConn) return
+    if (!accountConn || !accountId) return
     // when they change validators, see if there's an
     // unstaked balance and withdraw balance
 
