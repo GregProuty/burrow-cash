@@ -5,6 +5,7 @@ import { ChangeMethodsLogic } from "../../interfaces";
 import { Transaction } from "../wallet";
 import { prepareAndExecuteTransactions } from "../tokens";
 import * as nearAPI from 'near-api-js'
+import BN from "bn.js";
 
 export async function unstakeNative({ amount, validatorAddress }: { amount: string; validatorAddress: string }) {
   console.log('aloha our new unstake. amount', amount)
@@ -24,7 +25,9 @@ export async function unstakeNative({ amount, validatorAddress }: { amount: stri
           receiver_id: validatorAddress,
           amount: withYoctos,
         },
+        attachedDeposit: new BN(0)
       },
+
     ],
   });
 
