@@ -61,8 +61,8 @@ const StakingNative = () => {
   // console.log('aloha context', context)
   const balance = useAppSelector(getAccountBalance);
   const formattedBalance = Number.parseFloat(balance).toFixed(2)
-  console.log('aloha balance', balance)
-  console.log('aloha formattedBalance', formattedBalance)
+  // console.log('aloha balance', balance)
+  // console.log('aloha formattedBalance', formattedBalance)
 
   useEffect(() => {
     const start = async () => {
@@ -101,9 +101,9 @@ const StakingNative = () => {
         { account_id: accountId },
         // blockQuery: {finality: "final"}
       )
-      console.log('aloha stakedBalance', stakedBalance)
+      // console.log('aloha stakedBalance', stakedBalance)
       const myFormattedStakedBalance = nearAPI.utils.format.formatNearAmount(stakedBalance, 2)
-      console.log('aloha formattedStakedBalance', myFormattedStakedBalance)
+      // console.log('aloha formattedStakedBalance', myFormattedStakedBalance)
       setFormattedStakedBalance(myFormattedStakedBalance)
       // const stakedBalance = await accountConn.viewFunction({
       //   contractId: selectedValidator,
@@ -230,7 +230,7 @@ const StakingNative = () => {
         <div className="md:flex justify-center gap-4 md:gap-6">
           <StakingBox
             text1="💰 Available"
-            value1={formattedBalance}
+            value1={!accountId || isNaN(Number(formattedBalance)) ? "—" : formattedBalance}
             // text2="Your APY"
             // value2={`${formatAPYValue(stakingNetAPY + stakingNetTvlAPY)}%`}
             value2ClassName="text-primary"
