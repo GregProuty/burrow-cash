@@ -197,11 +197,12 @@ const StakingNative = () => {
           setSelectedValidator(val.target.value)
         }}>
           <option value="stardust.poolv1.near">stardust.poolv1.near</option>
+          <option value="stardust.pool.near">stardust.pool.near</option>
           <option value="udhc1.pool.near">udhc1.pool.near</option>
           <option value="nearua.poolv1.near">nearua.poolv1.near</option>
           <option value="sharpdarts.poolv1.near">sharpdarts.poolv1.near</option>
-          <option value="nearweek.poolv1.near">nearweek.poolv1.near</option>
-          <option value="calimero.poolv1.near">calimero.poolv1.near</option>
+          <option value="nearweek.pool.near">nearweek.pool.near</option>
+          <option value="calimero.pool.near">calimero.pool.near</option>
           <option value="shardlabs.poolv1.near">shardlabs.poolv1.near</option>
           <option value="hashquark.poolv1.near">hashquark.poolv1.near</option>
           <option value="everstake.poolv1.near">everstake.poolv1.near</option>
