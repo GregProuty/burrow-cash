@@ -24,7 +24,7 @@ module.exports = {
   plugins: ["react", "@typescript-eslint", "prettier"],
   rules: {
     camelcase: 0,
-    "prettier/prettier": ["never", { endOfLine: "auto" }],
+    "prettier/prettier": [0, { endOfLine: "auto" }],
     "object-curly-spacing": "off",
     "no-unused-vars": "never",
     "import/extensions": "never",
