@@ -56,6 +56,9 @@ const StakingNative = () => {
   const [nearConn, setNearConn] = useState<Near | null>(null)
   const [accountConn, setAccountConn] = useState<Account | null>(null)
   const [formattedStakedBalance, setFormattedStakedBalance] = useState<string | null>(null)
+  // Note: this value will only appear in the withdraw element if it's able to be withdrawn
+  const [formattedUnstakedBalance, setFormattedUnstakedBalance] = useState<string | null>("0")
+  const [isAvailableToWithdraw, setIsAvailableToWithdraw] = useState(false)
 
   // const context = useContext(WalletContext);
   // console.log('aloha context', context)
@@ -112,6 +115,24 @@ const StakingNative = () => {
       //   blockQuery: {finality: "final"}
       // })
       // console.log('aloha stakedBalance', stakedBalance)
+
+      // Now determine if (and how much) the user is able to withdraw from the selected validator
+      const myUnstakedBalance = await accountConn.viewFunction(
+        selectedValidator,
+        'get_account_unstaked_balance',
+        { account_id: accountId }
+      )
+      // console.log('aloha myUnstakedBalance', myUnstakedBalance)
+      const myFormattedUnstakedBalance = nearAPI.utils.format.formatNearAmount(myUnstakedBalance, 2)
+      setFormattedUnstakedBalance(myFormattedUnstakedBalance)
+
+      const myIsAvailableToWithdraw = await accountConn.viewFunction(
+        selectedValidator,
+        'is_account_unstaked_balance_available',
+        { account_id: accountId }
+      )
+      // console.log('aloha myIsAvailableToWithdraw', myIsAvailableToWithdraw)
+      setIsAvailableToWithdraw(myIsAvailableToWithdraw)
     }
 
     start()
@@ -293,8 +314,8 @@ const StakingNative = () => {
             // logoIcon={disabledUnstake ? <LockIcon /> : <UnlockIcon />}
             // disabled={BRRR === 0}
             text1="Withdraw"
-            // value1={BRRR ? BRRR.toLocaleString(undefined, TOKEN_FORMAT) : 0}
-            // text2={BRRR ? "Due to" : ""}
+            value1={(formattedUnstakedBalance !== "0" && isAvailableToWithdraw) ? formattedUnstakedBalance : '0'}
+            text2={"Note: the balance reflects the amount available for immediate withdrawal"}
             // value2={BRRR ? unstakeDate.toFormat("yyyy-MM-dd / HH:mm") : ""}
           >
             <input id={"withdrawNative"} type={"text"} style={{
