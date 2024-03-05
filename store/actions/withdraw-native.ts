@@ -5,6 +5,7 @@ import { ChangeMethodsLogic } from "../../interfaces";
 import { Transaction } from "../wallet";
 import { prepareAndExecuteTransactions } from "../tokens";
 import * as nearAPI from 'near-api-js'
+import BN from "bn.js";
 
 export async function withdrawNative({ amount, validatorAddress }: { amount: string; validatorAddress: string }) {
   console.log('aloha withdraw. amount', amount)
@@ -24,6 +25,7 @@ export async function withdrawNative({ amount, validatorAddress }: { amount: str
           receiver_id: validatorAddress,
           amount: withYoctos,
         },
+        attachedDeposit: new BN(0)
       },
     ],
   });
