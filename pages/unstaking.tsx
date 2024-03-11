@@ -219,6 +219,8 @@ const StakingNative = () => {
         }}>
           <option value="stardust.poolv1.near">stardust.poolv1.near</option>
           <option value="stardust.pool.near">stardust.pool.near</option>
+          <option value="zavodil.poolv1.near">zavodil.poolv1.near</option>
+          <option value="polkachu.poolv1.near">polkachu.poolv1.near</option>
           <option value="udhc1.pool.near">udhc1.pool.near</option>
           <option value="nearua.poolv1.near">nearua.poolv1.near</option>
           <option value="sharpdarts.poolv1.near">sharpdarts.poolv1.near</option>
