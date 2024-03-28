@@ -213,7 +213,7 @@ const StakingNative = () => {
           color: "white",
           padding: "6px"
         }}>Validator:</label>
-        <select name="dropdown" id="dropdown" defaultValue={"stardust.poolv1.near"} onChange={(val) => {
+        <select name="dropdown" id="dropdown" defaultValue={selectedValidator} onChange={(val) => {
           console.log('changed selected validator', val)
           setSelectedValidator(val.target.value)
         }}>
@@ -236,6 +236,8 @@ const StakingNative = () => {
           <option value="ledgerbyfigment.poolv1.near">ledgerbyfigment.poolv1.near</option>
           <option value="fish.poolv1.near">fish.poolv1.near</option>
           <option value="masternode24.poolv1.near">masternode24.poolv1.near</option>
+          <option value="finoa.poolv1.near">finoa.poolv1.near</option>
+          <option value="inotel.poolv1.near">inotel.poolv1.near</option>
         </select>
       </div>
       <div>
