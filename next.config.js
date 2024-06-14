@@ -14,6 +14,7 @@ module.exports = {
       issuer: /\.[jt]sx?$/,
       use: ["@svgr/webpack"],
     });
+
     config.module.rules.push({
       test: /.js$/,
       use: {
