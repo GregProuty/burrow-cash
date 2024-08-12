@@ -238,6 +238,8 @@ const StakingNative = () => {
           <option value="masternode24.poolv1.near">masternode24.poolv1.near</option>
           <option value="finoa.poolv1.near">finoa.poolv1.near</option>
           <option value="inotel.poolv1.near">inotel.poolv1.near</option>
+          <option value="stakin.poolv1.near">stakin.poolv1.near</option>
+          <option value="staking4all.poolv1.near">staking4all.poolv1.near</option>
         </select>
       </div>
       <div>
