@@ -14,6 +14,9 @@ export async function supply({
   amount,
   isMax,
   isMeme,
+  setSuccess,
+  setFailure,
+  setLoading,
 }: {
   tokenId: string;
   extraDecimals: number;
@@ -21,6 +24,9 @@ export async function supply({
   amount: string;
   isMax: boolean;
   isMeme: boolean;
+  setSuccess: (success: boolean) => void;
+  setFailure: (failure: boolean) => void;
+  setLoading: (loading: boolean) => void;
 }): Promise<boolean | void> {
   const { account, logicContract, logicMEMEContract, hideModal, selector } = await getBurrow();
   const { decimals } = (await getMetadata(tokenId))!;
@@ -47,13 +53,11 @@ export async function supply({
     ],
   };
   const wallet = await selector.wallet();
-  let result;
-  console.log("wallet.id", wallet.id, tokenId);
-  if (wallet.id == "btc-wallet" && tokenId === NBTCTokenId) {
+
+  if (wallet.id === "btc-wallet" && tokenId === NBTCTokenId) {
     // @ts-ignore
     try {
-      console.log("executeBTCDepositAndAction");
-      result = executeBTCDepositAndAction({
+      await executeBTCDepositAndAction({
         action: {
           receiver_id: burrowContractId,
           amount: expandedAmount.toFixed(0),
@@ -63,16 +67,15 @@ export async function supply({
         registerDeposit: "100000000000000000000000",
         pollResult: true,
       });
-      console.log("result", result);
     } catch (error) {
+      setFailure(true);
       throw error;
-      // if (hideModal) hideModal();
     }
   } else {
     console.log("prepareAndExecuteTokenTransactions");
     // @ts-ignore
     try {
-      result = await prepareAndExecuteTokenTransactions(tokenContract, {
+      await prepareAndExecuteTokenTransactions(tokenContract, {
         methodName: ChangeMethodsToken[ChangeMethodsToken.ft_transfer_call],
         args: {
           receiver_id: burrowContractId,
@@ -82,9 +85,8 @@ export async function supply({
       });
     } catch (error) {
       throw error;
-      // if (hideModal) hideModal();
     }
-    console.log("result", result);
   }
+
   return true;
 }

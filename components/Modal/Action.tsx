@@ -76,6 +76,7 @@ export default function Action({
       return;
     }
     setLoading(true);
+
     trackActionButton(action, {
       tokenId,
       amount,
@@ -110,6 +111,9 @@ export default function Action({
               amount,
               isMax,
               isMeme,
+              setSuccess,
+              setFailure,
+              setLoading,
             });
             if (result) {
               setSuccess(true);

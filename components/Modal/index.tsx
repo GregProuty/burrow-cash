@@ -119,10 +119,9 @@ const Modal = () => {
     poolAsset: assets[tokenId],
   });
   const handleClose = () => {
-    // dispatch(hideModal());
+    dispatch(hideModal());
     setFailure(false);
     setSuccess(false);
-    console.log("handleClose !!!!!!!!!!!!!!!!");
   };
   // useEffect(() => {
   //   if (isOpen) {

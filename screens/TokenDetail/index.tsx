@@ -994,6 +994,7 @@ function TokenUserInfo() {
   const handleBorrowClick = useBorrowTrigger(tokenId);
   const dispatch = useAppDispatch();
   const isBtc = tokenId === NBTCTokenId;
+
   function getIcons() {
     return (
       <div className="flex items-center justify-center flex-wrap flex-shrink-0">
@@ -1050,9 +1051,7 @@ function TokenUserInfo() {
         <div className="flex items-center justify-between my-[25px]">
           <span className="text-sm text-gray-300">Available to Supply</span>
           <div className="flex items-center]">
-            <span className="text-sm text-white mr-2.5">
-              {accountId ? formatWithCommas_number(supplyBalance) : "-"}
-            </span>
+            <span className="text-sm text-white mr-2.5">{accountId ? supplyBalance : "-"}</span>
             <LPTokenCell asset={tokenRow} balance={supplyBalance}>
               {getIcons()}
             </LPTokenCell>
@@ -1063,6 +1062,9 @@ function TokenUserInfo() {
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-300">Available to Supply</span>
             <span className="flex items-center">
+              <span className="text-sm text-white mr-2.5">
+                {accountId ? btcAvailableBalance : "-"}
+              </span>
               {/* {accountId ? digitalProcess(btcChainDetail.availableBalance || 0, 8) : "-"} */}
               <img src="/svg/btcLogo.svg" alt="BTC" className="w-5 h-5 ml-2" />
               {/* <span
@@ -1121,7 +1123,9 @@ function TokenUserInfo() {
               </div>
             ) : (
               <div className="flex items-center">
-                <span className="text-white">{accountId && tokenRow?.can_borrow ? "0" : "-"}</span>
+                <span className="text-white mr-5">
+                  {accountId && tokenRow?.can_borrow ? "0" : "-"}
+                </span>
                 <img src={tokenRow?.icon} className="w-5 h-5 rounded-full" alt="" />
               </div>
             )}
