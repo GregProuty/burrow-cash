@@ -13,7 +13,7 @@ const Portfolio = () => {
   const accountId = useAccountId();
   const theme = useTheme();
   return (
-    <Box pb="2.5rem" display="grid" justifyContent="center">
+    <Box pb="2.5rem" display="grid" justifyContent="center" mt="100px" border="1px solid red">
       {!accountId && <OnboardingBRRR />}
       <BetaInfo />
       <NonFarmedAssets />

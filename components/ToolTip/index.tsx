@@ -1,9 +1,31 @@
-import React from "react";
+import React, { useState } from "react";
 import { Tooltip } from "react-tooltip";
 import { styled } from "styled-components";
 import { QuestionIcon, WarnIcon } from "./svg";
+import HtmlTooltip from "../common/html-tooltip";
 
 type ITipType = "warn" | "question" | undefined;
+export function TagToolTip({ title, type }: { title: any; type?: string }) {
+  const [showTooltip, setShowTooltip] = useState(false);
+  return (
+    <HtmlTooltip
+      open={showTooltip}
+      onOpen={() => setShowTooltip(true)}
+      onClose={() => setShowTooltip(false)}
+      title={title}
+    >
+      <span
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowTooltip(!showTooltip);
+        }}
+      >
+        {type === "warn" ? <WarnIcon /> : <QuestionIcon />}
+      </span>
+    </HtmlTooltip>
+  );
+}
+// Deprecated
 export default function ToolTip({
   content,
   type,
@@ -30,7 +52,6 @@ export default function ToolTip({
     </TipWrap>
   );
 }
-
 const TipWrap = styled.div`
   #my-tooltip.react-tooltip {
     border: 1px solid #4f5178;

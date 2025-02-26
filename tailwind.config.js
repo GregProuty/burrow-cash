@@ -1,9 +1,33 @@
 /** @type {import("tailwindcss").Config} */
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const plugin = require("tailwindcss/plugin");
+
+const getStyleMapping = (max, min) => {
+  if (!max) {
+    return;
+  }
+  const maxArray = [...Array(max + 1).keys()];
+  return maxArray.reduce((pre, cur) => {
+    // eslint-disable-next-line no-unused-expressions
+    cur >= min && (pre[cur] = `${cur / 4}rem`);
+    return pre;
+  }, {});
+};
 module.exports = {
   content: [
     "./screens/**/*.{js,ts,jsx,tsx,mdx}",
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  plugins: [
+    plugin(function ({ addUtilities }) {
+      addUtilities({
+        ".fc": {
+          display: "flex",
+          alignItems: "center",
+        },
+      });
+    }),
   ],
   theme: {
     screens: {
@@ -26,6 +50,12 @@ module.exports = {
     },
     boxShadow: {},
     extend: {
+      width: {
+        ...getStyleMapping(1800, 0),
+      },
+      minWidth: {
+        ...getStyleMapping(1800, 0),
+      },
       boxShadow: {
         100: "0px 0px 2px 0px #00000080",
       },
@@ -42,17 +72,25 @@ module.exports = {
         h1: "90px",
         h2: "26px",
         h3: "18px",
+        56: "56px",
       },
       borderRadius: {
         sm: "6px",
       },
       colors: {
-        primary: "#D2FF3A",
+        // primary: "#D2FF3A",
+        primary: "#FF9900",
         claim: "#7C89FF",
         warning: "#FFC34F",
         danger: "#FF68A7",
         blue: {
           50: "#45AFFF",
+          100: "#398FED",
+        },
+        green: {
+          50: "#00B4B4",
+          100: "#16F195",
+          150: "#6FA300",
         },
         dark: {
           50: "#31344D",
@@ -71,13 +109,20 @@ module.exports = {
           900: "#3F4162",
           950: "#31344C",
           1000: "#3E4260",
+          1050: "#2F324A",
+          1100: "#404040",
+          1150: "#2F324B",
+          1200: "#444766",
+          1250: "#727591",
         },
         red: {
-          50: "#FF6BA9",
+          50: "#FF9900",
           100: "#FF68A7",
+          150: "#EA3F68",
         },
         yellow: {
           50: "#F3BA2F",
+          100: "#F1B416",
         },
         gray: {
           50: "#fafafa",
@@ -90,9 +135,20 @@ module.exports = {
           700: "#494D69",
           800: "#23253A",
           900: "#0f101c",
+          950: "#787B93",
+          1000: "#3A3A3A",
+          1050: "#ECECEC",
+          1100: "#2F324B",
+          1200: "#D8DCFF",
+          1250: "#454869",
+          1300: "#383A56",
+          1350: "#565A7B",
+          1400: "#5A5C7A",
         },
         toolTipBoxBorderColor: "#D2FF3A",
         toolTipBoxBgColor: "rgba(35,37,58,0.8)",
+        marginCloseBtn: "rgba(192, 196, 233, 0.4)",
+        marginWithdrawAllBtn: "rgba(210, 255, 58, 0.6)",
       },
     },
   },
@@ -102,5 +158,4 @@ module.exports = {
     opacity: [],
     backgroundColor: ["responsive", "hover", "focus", "group-hover"],
   },
-  plugins: [],
 };

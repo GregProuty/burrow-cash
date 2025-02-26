@@ -1,20 +1,25 @@
+// @ts-nocheck
 import { useEffect, useState } from "react";
 import { Box, Typography, Stack, Alert, Link, useTheme } from "@mui/material";
-import { FcInfo } from "@react-icons/all-files/fc/FcInfo";
 import { BeatLoader } from "react-spinners";
-import TokenIcon from "../TokenIcon";
+import { twMerge } from "tailwind-merge";
 import { actionMapTitle } from "./utils";
-import APYCell from "../Table/common/apy-cell";
 import { TOKEN_FORMAT, USD_FORMAT } from "../../store";
 import { useDegenMode } from "../../hooks/hooks";
 import { useAppSelector, useAppDispatch } from "../../redux/hooks";
-import { getSelectedValues, getAssetData } from "../../redux/appSelectors";
 import { toggleUseAsCollateral, hideModal, showModal } from "../../redux/appSlice";
+import {
+  toggleUseAsCollateral as toggleUseAsCollateralMEME,
+  hideModal as hideModalMEME,
+  showModal as showModalMEME,
+} from "../../redux/appSliceMEME";
 import { isInvalid, formatWithCommas_usd } from "../../utils/uiNumber";
-import { YellowSolidSubmitButton, RedSolidSubmitButton } from "./button";
+import { YellowSolidSubmitButton, RedSolidSubmitButton, CancelButton } from "./button";
 import { getCollateralAmount } from "../../redux/selectors/getCollateralAmount";
-import { TipIcon, CloseIcon, WarnIcon, JumpTipIcon } from "./svg";
+import { TipIcon, CloseIcon, WarnIcon, JumpTipIcon, ArrowRight } from "./svg";
 import ReactToolTip from "../ToolTip";
+import { IToken } from "../../interfaces/asset";
+import { isMemeCategory } from "../../redux/categorySelectors";
 
 export const USNInfo = () => (
   <Box mt="1rem">
@@ -70,32 +75,48 @@ export const CloseButton = ({ onClose, ...props }) => (
   </Box>
 );
 
-export const TokenInfo = ({ apy, asset, onClose }) => {
-  const { action, symbol, tokenId, icon, depositRewards, borrowRewards } = asset;
-  const page = ["Withdraw", "Adjust", "Supply"].includes(action) ? "deposit" : "borrow";
+export const ModalTitle = ({ asset, onClose }) => {
+  const { action, symbol, isLpToken, tokens } = asset;
+  function getSymbols() {
+    return (
+      <div className="flex items-center flex-shrink-0">
+        {isLpToken ? (
+          tokens.map((token: IToken, index) => {
+            const { metadata } = token;
+            return (
+              <span className="text-base xsm:text-sm text-whit" key={token.token_id}>
+                {metadata?.symbol}
+                {index === tokens.length - 1 ? "" : "-"}
+              </span>
+            );
+          })
+        ) : (
+          <span className="text-base text-white">{symbol}</span>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="">
+      <div className="flex items-center justify-between text-lg text-white">
+        <div
+          className={`flex items-center flex-wrap ${
+            tokens?.length > 2 && action === "Adjust" ? "" : "gap-1.5"
+          }`}
+        >
+          {actionMapTitle[action]} <span>{getSymbols()}</span>
+        </div>
+        {/* <CloseIcon onClick={onClose} /> */}
+      </div>
+    </div>
+  );
+};
+export const RepayTab = ({ asset }) => {
+  const { action } = asset;
   const isRepay = action === "Repay";
   const { degenMode, isRepayFromDeposits, setRepayFromDeposits } = useDegenMode();
-  const actionDoc = {
-    Supply: "https://docs.burrow.finance/product-docs/using-burrow/supplying",
-    Withdraw: "https://docs.burrow.finance/product-docs/using-burrow/supplying",
-    Adjust: "https://docs.burrow.finance/product-docs/using-burrow/supplying",
-    Borrow: "https://docs.burrow.finance/product-docs/using-burrow/borrowing",
-    Repay: "https://docs.burrow.finance/product-docs/using-burrow/borrowing",
-  };
   return (
     <div className="mb-[20px]">
-      <div className="flex items-center justify-between text-lg text-white">
-        <div className="flex items-center gap-2">
-          {actionMapTitle[action]} <span className="ml-1.5">{symbol}</span>
-          <JumpTipIcon
-            className="cursor-pointer text-gray-400 hover:text-white hover:text-opacity-50"
-            onClick={() => {
-              window.open(actionDoc[action]);
-            }}
-          />
-        </div>
-        <CloseIcon onClick={onClose} />
-      </div>
       {isRepay && degenMode.enabled && (
         <div className="flex items-center justify-between border border-dark-500 rounded-md bg-dark-600 h-12 mt-5 p-1.5">
           <span
@@ -128,7 +149,7 @@ export const Available = ({ totalAvailable, available$ }) => (
   </Box>
 );
 
-export const HealthFactor = ({ value }) => {
+export const HealthFactor = ({ value, title }: { value: number; title?: string }) => {
   const healthFactorColor =
     value === -1
       ? "text-primary"
@@ -141,8 +162,20 @@ export const HealthFactor = ({ value }) => {
 
   return (
     <div className="flex items-center justify-between">
-      <span className="text-sm text-gray-300">Health Factor</span>
+      <span className="text-sm text-gray-300">{title || "Health Factor"}</span>
       <span className={`text-sm ${healthFactorColor}`}>{healthFactorDisplayValue}</span>
+    </div>
+  );
+};
+export const BorrowLimit = ({ from, to }: { from: string | number; to: string | number }) => {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-sm text-gray-300">Borrow limit</span>
+      <div className="flex items-center text-sm">
+        <span className="text-gray-300 line-through">{formatWithCommas_usd(from)}</span>
+        <ArrowRight className="mx-1.5" />
+        <span className="text-white">{formatWithCommas_usd(to)}</span>
+      </div>
     </div>
   );
 };
@@ -150,24 +183,41 @@ export const HealthFactor = ({ value }) => {
 export const CollateralSwitch = ({ action, canUseAsCollateral, tokenId }) => {
   const [collateralStatus, setCollateralStatus] = useState<boolean>(true);
   const dispatch = useAppDispatch();
+  const isMeme = useAppSelector(isMemeCategory);
   const showToggle = action === "Supply";
   useEffect(() => {
     if (!canUseAsCollateral) {
-      dispatch(toggleUseAsCollateral({ useAsCollateral: false }));
+      if (isMeme) {
+        dispatch(toggleUseAsCollateralMEME({ useAsCollateral: false }));
+      } else {
+        dispatch(toggleUseAsCollateral({ useAsCollateral: false }));
+      }
       setCollateralStatus(false);
     } else {
-      dispatch(toggleUseAsCollateral({ useAsCollateral: true }));
+      if (isMeme) {
+        dispatch(toggleUseAsCollateralMEME({ useAsCollateral: true }));
+      } else {
+        dispatch(toggleUseAsCollateral({ useAsCollateral: true }));
+      }
       setCollateralStatus(true);
     }
-  }, [tokenId]);
+  }, [tokenId, isMeme]);
   useEffect(() => {
     if (!canUseAsCollateral) {
-      dispatch(toggleUseAsCollateral({ useAsCollateral: false }));
+      if (isMeme) {
+        dispatch(toggleUseAsCollateralMEME({ useAsCollateral: false }));
+      } else {
+        dispatch(toggleUseAsCollateral({ useAsCollateral: false }));
+      }
       setCollateralStatus(false);
     } else {
-      dispatch(toggleUseAsCollateral({ useAsCollateral: collateralStatus }));
+      if (isMeme) {
+        dispatch(toggleUseAsCollateralMEME({ useAsCollateral: collateralStatus }));
+      } else {
+        dispatch(toggleUseAsCollateral({ useAsCollateral: collateralStatus }));
+      }
     }
-  }, [collateralStatus]);
+  }, [collateralStatus, isMeme]);
   const handleSwitchToggle = (checked: boolean) => {
     setCollateralStatus(checked);
   };
@@ -241,22 +291,28 @@ export const Rates = ({ rates }) => {
   ));
 };
 
-export const SubmitButton = ({ action, disabled, onClick, loading }) => {
+export const SubmitButton = ({ action, disabled, onClick, loading, onClose }) => {
   if (action === "Borrow" || action === "Repay")
     return (
-      <RedSolidSubmitButton disabled={disabled || loading} onClick={onClick}>
-        {loading ? <BeatLoader size={5} color="#14162B" /> : action}
-      </RedSolidSubmitButton>
+      <div className="flex items-center gap-2">
+        <CancelButton onClick={onClose}>Cancel</CancelButton>
+        <RedSolidSubmitButton disabled={disabled || loading} onClick={onClick}>
+          {loading ? <BeatLoader size={5} color="#FF9900" /> : action}
+        </RedSolidSubmitButton>
+      </div>
     );
 
   return (
-    <YellowSolidSubmitButton disabled={disabled || loading} onClick={onClick}>
-      {loading ? <BeatLoader size={5} color="#14162B" /> : action === "Adjust" ? "Confirm" : action}
-    </YellowSolidSubmitButton>
+    <div className="flex items-center gap-2">
+      <CancelButton onClick={onClose}>Cancel</CancelButton>
+      <RedSolidSubmitButton disabled={disabled || loading} onClick={onClick}>
+        {loading ? <BeatLoader size={5} color="#FF9900" /> : action}
+      </RedSolidSubmitButton>
+    </div>
   );
 };
 
-export const Alerts = ({ data }) => {
+export const Alerts = ({ data, errorClassName }: any) => {
   const sort = (b: any, a: any) => {
     if (b[1].severity === "error") return 1;
     if (a[1].severity === "error") return -1;
@@ -271,7 +327,13 @@ export const Alerts = ({ data }) => {
           if (data[alert].severity === "warning") {
             return <AlertWarning className="-mt-2" key={alert} title={data[alert].title} />;
           } else {
-            return <AlertError className="pb-5 -mb-7" key={alert} title={data[alert].title} />;
+            return (
+              <AlertError
+                className={twMerge("pb-5 -mb-7", errorClassName || "")}
+                key={alert}
+                title={data[alert].title}
+              />
+            );
           }
         })}
     </div>
@@ -297,36 +359,76 @@ export const AlertError = ({ title, className }: { title: string; className?: st
 
 export function useWithdrawTrigger(tokenId: string) {
   const dispatch = useAppDispatch();
+  const isMeme = useAppSelector(isMemeCategory);
   return () => {
-    dispatch(showModal({ action: "Withdraw", tokenId, amount: "0" }));
+    if (isMeme) {
+      dispatch(showModalMEME({ action: "Withdraw", tokenId, amount: "0" }));
+    } else {
+      dispatch(showModal({ action: "Withdraw", tokenId, amount: "0" }));
+    }
   };
 }
 
-export function useAdjustTrigger(tokenId: string) {
+export function useAdjustTrigger(tokenId: string, memeCategory?: boolean) {
   const dispatch = useAppDispatch();
-  const amount = useAppSelector(getCollateralAmount(tokenId));
+  const isMemeCur = useAppSelector(isMemeCategory);
+  let isMeme: boolean;
+  if (typeof memeCategory !== "boolean") {
+    isMeme = isMemeCur;
+  } else {
+    isMeme = memeCategory;
+  }
+  const amount = useAppSelector(getCollateralAmount(tokenId, isMeme));
   return () => {
-    dispatch(showModal({ action: "Adjust", tokenId, amount }));
+    if (isMeme) {
+      dispatch(showModalMEME({ action: "Adjust", tokenId, amount }));
+    } else {
+      dispatch(showModal({ action: "Adjust", tokenId, amount }));
+    }
   };
 }
 
 export function useSupplyTrigger(tokenId: string) {
   const dispatch = useAppDispatch();
+  const isMeme = useAppSelector(isMemeCategory);
   return () => {
-    dispatch(showModal({ action: "Supply", tokenId, amount: "0" }));
+    if (isMeme) {
+      dispatch(showModalMEME({ action: "Supply", tokenId, amount: "0" }));
+    } else {
+      dispatch(showModal({ action: "Supply", tokenId, amount: "0" }));
+    }
   };
 }
 
 export function useBorrowTrigger(tokenId: string) {
   const dispatch = useAppDispatch();
+  const isMeme = useAppSelector(isMemeCategory);
   return () => {
-    dispatch(showModal({ action: "Borrow", tokenId, amount: "0" }));
+    if (isMeme) {
+      dispatch(showModalMEME({ action: "Borrow", tokenId, amount: "0" }));
+    } else {
+      dispatch(showModal({ action: "Borrow", tokenId, amount: "0" }));
+    }
   };
 }
 
-export function useRepayTrigger(tokenId: string) {
+export function useRepayTrigger(tokenId: string, position?: string) {
   const dispatch = useAppDispatch();
+  const isMeme = useAppSelector(isMemeCategory);
   return () => {
-    dispatch(showModal({ action: "Repay", tokenId, amount: "0" }));
+    if (isMeme) {
+      dispatch(showModalMEME({ action: "Repay", tokenId, amount: "0", position }));
+    } else {
+      dispatch(showModal({ action: "Repay", tokenId, amount: "0", position }));
+    }
   };
 }
+
+export const Receive = ({ value }: { value: string }) => {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-sm text-gray-300">Receive Amount</span>
+      <span className="text-sm">{value}</span>
+    </div>
+  );
+};

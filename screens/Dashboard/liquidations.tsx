@@ -1,19 +1,18 @@
+// @ts-nocheck
 import { useEffect, useState } from "react";
 import CustomTable from "../../components/CustomTable/CustomTable";
-import { useAccountId, useUnreadLiquidation } from "../../hooks/hooks";
 import { shrinkToken, TOKEN_FORMAT } from "../../store";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
-import { getAssets } from "../../redux/assetsSelectors";
-import { getDateString, maskMiddleString } from "../../helpers/helpers";
+import { getAssetsCategory } from "../../redux/assetsSelectors";
+import { isMemeCategory } from "../../redux/categorySelectors";
+import { formatTokenValueWithMilify, getDateString } from "../../helpers/helpers";
 import { getLiquidations } from "../../api/get-liquidations";
 import { setUnreadLiquidation } from "../../redux/appSlice";
+import { getAccountId } from "../../redux/accountSelectors";
 
-const Liquidations = ({ isShow }) => {
-  const dispatch = useAppDispatch();
-  const accountId = useAccountId();
-  const assets = useAppSelector(getAssets);
-  const [isLoading, setIsLoading] = useState(false);
+const Liquidations = ({ isShow, setLiquidationPage }) => {
   const [docs, setDocs] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [pagination, setPagination] = useState<{
     page?: number;
     totalPages?: number;
@@ -21,19 +20,29 @@ const Liquidations = ({ isShow }) => {
   }>({
     page: 1,
   });
-
+  const dispatch = useAppDispatch();
+  const isMeme = useAppSelector(isMemeCategory);
+  const assets = useAppSelector(getAssetsCategory(isMeme));
+  const accountId = useAppSelector(getAccountId);
   useEffect(() => {
     if (isShow) {
       fetchData({
         page: pagination?.page,
       }).then();
+      setLiquidationPage(pagination?.page);
     }
   }, [isShow, pagination?.page]);
 
   const fetchData = async ({ page }) => {
     try {
       setIsLoading(true);
-      const { liquidationData, unreadIds } = await getLiquidations(accountId, page, 10, assets);
+      const { liquidationData, unreadIds } = await getLiquidations(
+        accountId,
+        page,
+        10,
+        assets,
+        isMeme,
+      );
       let newUnreadCount = 0;
       liquidationData?.record_list?.forEach((d) => {
         if (d.isRead === false) newUnreadCount++;
@@ -83,18 +92,40 @@ const columns = [
   {
     header: () => (
       <div style={{ whiteSpace: "normal" }}>
-        Health Factor<div>before Liquidate</div>
+        Collateral<div>Type</div>
       </div>
     ),
     cell: ({ originalData }) => {
-      const { healthFactor_before } = originalData || {};
-      return <div>{(Number(healthFactor_before) * 100).toFixed(2)}%</div>;
+      const { LiquidatedAssets } = originalData || {};
+      return <div>{LiquidatedAssets?.[0]?.data?.isLpToken ? "LP token" : "Standard Token"}</div>;
     },
   },
+  // {
+  //   header: () => (
+  //     <div style={{ whiteSpace: "normal" }}>
+  //       Health Factor<div>before Liquidate</div>
+  //     </div>
+  //   ),
+  //   cell: ({ originalData }) => {
+  //     const { healthFactor_before, liquidation_type } = originalData || {};
+  //     if (liquidation_type === "ForceClose") {
+  //       return "-";
+  //     }
+  //     return <div>{(Number(healthFactor_before) * 100).toFixed(2)}%</div>;
+  //   },
+  // },
   {
-    header: () => <div style={{ whiteSpace: "normal" }}>Repaid Assets Amount</div>,
+    header: () => (
+      <div style={{ whiteSpace: "normal" }}>
+        Repaid Assets <div>Amount</div>
+      </div>
+    ),
     cell: ({ originalData }) => {
       const { RepaidAssets } = originalData || {};
+      if (!RepaidAssets?.length) {
+        return "-";
+      }
+
       const node = RepaidAssets?.map((d, i) => {
         const isLast = RepaidAssets.length === i + 1;
         const { metadata, config } = d.data || {};
@@ -104,9 +135,14 @@ const columns = [
         const tokenAmount = Number(
           shrinkToken(d.amount, (metadata?.decimals || 0) + (extra_decimals || 0)),
         );
+
         return (
-          <div key={d.token_id} className="whitespace-normal">
-            {tokenAmount.toLocaleString(undefined, TOKEN_FORMAT)} {tokenSymbol}
+          <div
+            key={d.token_id}
+            className="whitespace-normal"
+            title={`${tokenAmount.toLocaleString(undefined, TOKEN_FORMAT)} ${tokenSymbol}`}
+          >
+            {formatTokenValueWithMilify(tokenAmount, 4)} {tokenSymbol}
           </div>
         );
       });
@@ -118,16 +154,35 @@ const columns = [
     header: () => <div style={{ whiteSpace: "normal" }}>Liquidated Assets</div>,
     cell: ({ originalData }) => {
       const { LiquidatedAssets } = originalData || {};
+      if (!LiquidatedAssets?.length) {
+        return "-";
+      }
+
       const node = LiquidatedAssets?.map((d) => {
         const { metadata, config } = d.data || {};
         const { extra_decimals } = config || {};
-        const tokenSymbol = metadata?.symbol || d.token_id;
+        let tokenSymbol = "";
+        if (metadata?.tokens?.length) {
+          metadata?.tokens?.forEach((t, i) => {
+            const { symbol, token_id } = t.metadata || {};
+            tokenSymbol += `${i !== 0 ? "-" : ""}${symbol || token_id}`;
+          });
+        }
+        if (!tokenSymbol) {
+          tokenSymbol = metadata?.symbol || d.token_id;
+        }
+
         const tokenAmount = Number(
           shrinkToken(d.amount, (metadata?.decimals || 0) + (extra_decimals || 0)),
         );
+
         return (
-          <div key={d.token_id}>
-            {tokenAmount.toLocaleString(undefined, TOKEN_FORMAT)} {tokenSymbol}
+          <div
+            key={d.token_id}
+            className="whitespace-normal"
+            title={`${tokenAmount.toLocaleString(undefined, TOKEN_FORMAT)} ${tokenSymbol}`}
+          >
+            {formatTokenValueWithMilify(tokenAmount, 4)} {tokenSymbol}
           </div>
         );
       });
@@ -135,17 +190,19 @@ const columns = [
       return <div>{node}</div>;
     },
   },
-  {
-    header: () => (
-      <div style={{ whiteSpace: "normal" }}>
-        Health Factor<div>after Liquidate</div>
-      </div>
-    ),
-    cell: ({ originalData }) => {
-      const { healthFactor_after } = originalData || {};
-      return <div>{(Number(healthFactor_after) * 100).toFixed(2)}%</div>;
-    },
-  },
+  // {
+  //   header: () => (
+  //     <div style={{ whiteSpace: "normal", textAlign: "right" }}>
+  //       Health Factor<div>after Liquidate</div>
+  //     </div>
+  //   ),
+  //   cell: ({ originalData }) => {
+  //     const { healthFactor_after } = originalData || {};
+  //     return (
+  //       <div style={{ textAlign: "right" }}>{(Number(healthFactor_after) * 100).toFixed(2)}%</div>
+  //     );
+  //   },
+  // },
 ];
 
 export default Liquidations;

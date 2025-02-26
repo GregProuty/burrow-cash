@@ -4,14 +4,15 @@ import { Box } from "@mui/material";
 export const Wrapper = styled(Box)(({ theme }) => ({
   position: "relative",
   display: "flex",
-  backgroundColor: "#2E304B",
-  border: "1px solid #4F5178",
+  backgroundColor: "#43454C",
+  // border: "1px solid #4F5178",
   boxShadow: "0px 0px 10px 4px #00000026",
   flexDirection: "column",
+  overflow: "auto",
   [theme.breakpoints.down("sm")]: {
     position: "absolute",
     width: "100%",
-    bottom: "0",
+    bottom: "32px",
     left: "0",
     borderTopLeftRadius: "16px",
     borderTopRightRadius: "16px",

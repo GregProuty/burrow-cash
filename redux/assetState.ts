@@ -9,6 +9,9 @@ export type Asset = Omit<IAssetDetailed, "farms"> & {
     borrowed: {
       [token: string]: IAssetFarmReward;
     };
+    tokennetbalance: {
+      [token: string]: IAssetFarmReward;
+    };
   };
 };
 
@@ -18,6 +21,7 @@ export interface Assets {
 export interface AssetsState {
   data: Assets;
   netTvlFarm: INetTvlFarmRewards;
+  allFarms: IFarms;
   status: "pending" | "fulfilled" | "rejected" | "fetching" | null;
   fetchedAt: string | undefined;
 }
@@ -25,6 +29,14 @@ export interface AssetsState {
 export const initialState: AssetsState = {
   data: {},
   netTvlFarm: {},
+  allFarms: { supplied: {}, borrowed: {}, netTvl: {}, tokenNetBalance: {} },
   status: null,
   fetchedAt: undefined,
 };
+
+export interface IFarms {
+  supplied: Record<string, INetTvlFarmRewards>;
+  borrowed: Record<string, INetTvlFarmRewards>;
+  tokenNetBalance: Record<string, INetTvlFarmRewards>;
+  netTvl: Record<string, INetTvlFarmRewards>;
+}

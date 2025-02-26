@@ -15,7 +15,7 @@ import { isMobileDevice } from "../../helpers/helpers";
 const InterestRateChart = ({ data }) => {
   const { currentUtilRate } = data?.[0] || [];
   const isMobile = isMobileDevice();
-  const currentData = data.find((d) => d.percent === Math.round(currentUtilRate));
+  const currentData = data?.find((d) => d.percent === Math.round(currentUtilRate));
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart

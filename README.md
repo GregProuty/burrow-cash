@@ -1,4 +1,4 @@
-# Burrow.cash
+# Bear - Bitcoin Lending Protocol
 
 Update for deployment.
 
@@ -6,7 +6,7 @@ Update for deployment.
 
 To run this project locally:
 
-1. Prerequisites: Make sure you've installed [Node.js] ≥ 12
+1. Prerequisites: Make sure you've installed [Node.js] ≥ 12.
 2. Install dependencies: `yarn install`
 3. Run the local development server: `yarn dev` (see `package.json` for a
    full list of `scripts` you can run with `yarn`)
@@ -27,16 +27,16 @@ Go ahead and play with the app and the code. As you make code changes, the app w
 
 ```
 NEXT_PUBLIC_DEFAULT_NETWORK=testnet
-NEXT_PUBLIC_CONTRACT_NAME=contract.1638481328.burrow.testnet
+NEXT_PUBLIC_CONTRACT_NAME=contract.dev-burrow.testnet
+NEXT_PUBLIC_NEAR_STORAGE_DEPOSIT=0.25
 
 # use these for mainnet
 # NEXT_PUBLIC_DEFAULT_NETWORK=mainnet
 # NEXT_PUBLIC_CONTRACT_NAME=contract.main.burrow.near
+# NEXT_PUBLIC_NEAR_STORAGE_DEPOSIT=0.25
 
-NEXT_PUBLIC_NEAR_STORAGE_DEPOSIT=0.25
-
-# get the id from the walletconnect.com website (create a new project in dashboard)
-NEXT_PUBLIC_WALLET_CONNECT_ID=
+# get the id from the .com website (create a new project in dashboard)
+NEXT_PUBLIC_WALLET_CONNECT_ID=87e549918631f833447b56c15354e450
 ```
 
 ## Step 1: deploy!

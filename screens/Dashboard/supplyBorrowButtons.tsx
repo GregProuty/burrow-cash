@@ -6,6 +6,10 @@ import {
 } from "../../components/Modal/components";
 import CustomButton from "../../components/CustomButton/CustomButton";
 import { ArrowUpIcon } from "../../components/Icons/Icons";
+import { isMemeCategory } from "../../redux/categorySelectors";
+import { useAppSelector } from "../../redux/hooks";
+import { useAccountId } from "../../hooks/hooks";
+import { DISABLE_WITHDRAW_ADDRESS } from "../../utils/config";
 
 export const MarketButton = ({
   tokenId,
@@ -15,8 +19,9 @@ export const MarketButton = ({
   style?: object;
 }) => {
   const router = useRouter();
+  const isMeme = useAppSelector(isMemeCategory);
   const handleMarketClick = () => {
-    window.open(`/tokenDetail/${tokenId}`);
+    window.open(`/tokenDetail/${tokenId}?pageType=${isMeme ? "meme" : "main"}`);
     // router.push(`/tokenDetail/${tokenId}`);
   };
   return (
@@ -30,18 +35,28 @@ export const MarketButton = ({
 
 export const WithdrawButton = ({ tokenId }) => {
   const handleWithdrawClick = useWithdrawTrigger(tokenId);
+  const accountId = useAccountId();
+  const isTaproot = accountId?.startsWith(DISABLE_WITHDRAW_ADDRESS);
   return (
     <CustomButton
-      className="flex-1 flex items-center justify-center border border-primary border-opacity-60 cursor-pointer rounded-md text-base md:text-sm  text-primary bg-primary hover:opacity-80 bg-opacity-5 py-1"
+      className="flex-1 flex items-center justify-center border border-primary border-opacity-60 rounded-md text-base md:text-sm  text-primary bg-primary hover:opacity-80 bg-opacity-5 py-1"
       onClick={handleWithdrawClick}
+      disabled={isTaproot}
+      style={{ cursor: isTaproot ? "not-allowed" : "pointer" }}
     >
       Withdraw
     </CustomButton>
   );
 };
 
-export const AdjustButton = ({ tokenId }) => {
-  const handleAdjustClick = useAdjustTrigger(tokenId);
+export const AdjustButton = ({
+  tokenId,
+  memeCategory,
+}: {
+  tokenId: string;
+  memeCategory?: boolean;
+}) => {
+  const handleAdjustClick = useAdjustTrigger(tokenId, memeCategory);
   return (
     <CustomButton className="flex-1 text-base md:text-sm" onClick={handleAdjustClick}>
       Adjust
@@ -49,8 +64,8 @@ export const AdjustButton = ({ tokenId }) => {
   );
 };
 
-export const RepayButton = ({ tokenId }) => {
-  const handleRepayClick = useRepayTrigger(tokenId);
+export const RepayButton = ({ tokenId, position }) => {
+  const handleRepayClick = useRepayTrigger(tokenId, position);
   return (
     <div
       role="button"

@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef, createContext, useContext } from "react";
-import { Modal as MUIModal } from "@mui/material";
+import { Box, Modal as MUIModal, useTheme } from "@mui/material";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { MenuButton, CloseIcon, ArrowRightIcon, ArrowTopRightIcon, ArrowDownIcon } from "./svg";
 import { WrapperMenuMobile } from "./style";
 import { bridgeList } from "./Bridge";
 import { mainMenuList, helpMenu, Imenu } from "./menuData";
-import { toggleShowDust } from "../../redux/appSlice";
-import { getShowDust } from "../../redux/appSelectors";
+import { toggleShowDust } from "../../redux/marginTrading";
+import { getShowDust } from "../../redux/categorySelectors";
 import { useAppSelector, useAppDispatch } from "../../redux/hooks";
+import { DiscordIcon, MediumIcon, TwitterIcon } from "../Footer/svg";
 
 export default function MenuMobile() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -37,7 +38,9 @@ export default function MenuMobile() {
             })}
             <BridgeMenuItem onClose={handleClose} />
             <SetMenuItem />
-            <MenuItem onClose={handleClose} item={helpMenu} isOuterLink isLast />
+            <MenuItem onClose={handleClose} item={helpMenu} isOuterLink />
+            <CommunityItem />
+            <DeveloperItem />
           </div>
         </WrapperMenuMobile>
       </MUIModal>
@@ -183,13 +186,94 @@ const BridgeSubMenuItem = ({ title, pathname, subTitle, onClose }: PropsSubMenu)
     onClose();
   }
   return (
-    <div onClick={handleUrl} className="flex items-center justify-between h-[70px] px-6">
+    <div onClick={handleUrl} className="flex items-center justify-between h-[70px] w-[320px] px-6">
       <div className="pl-[56px] flex flex-col">
         <span className="text-sm text-white">{title}</span>
         <span className="text-sm text-gray-300">{subTitle}</span>
       </div>
 
-      <ArrowTopRightIcon className="relative -top-3" />
+      <ArrowTopRightIcon className="relative -top-3 flex-shrink-0" />
     </div>
+  );
+};
+
+const CommunityItem = () => {
+  return (
+    <div className="flex items-center justify-between h-[60px] px-6 border-b border-dark-700">
+      <div className="flex items-center gap-2">
+        <span className="text-base text-white">Community</span>
+      </div>
+      <Links />
+    </div>
+  );
+};
+
+const DeveloperItem = () => {
+  return (
+    <div className="flex items-center justify-between h-[60px] px-6">
+      <Link href="https://github.com/burrowHQ/">
+        <a
+          href="https://github.com/burrowHQ/"
+          className="flex items-center gap-2"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <span className="text-base text-gray-300">Github</span>
+          <ArrowTopRightIcon fill="#979ABE" />
+        </a>
+      </Link>
+      <Link href="https://immunefi.com/bounty/burrow/">
+        <a
+          href="https://immunefi.com/bounty/burrow/"
+          className="flex items-center gap-2"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <span className="text-base text-gray-300">Bug Bounty</span>
+          <ArrowTopRightIcon fill="#979ABE" />
+        </a>
+      </Link>
+    </div>
+  );
+};
+
+const Links = () => {
+  const theme = useTheme();
+  return (
+    <Box
+      display="grid"
+      gridTemplateColumns="repeat(3, 1fr)"
+      alignItems="center"
+      lineHeight="0"
+      sx={{ gap: "26px" }}
+    >
+      <a
+        href="https://twitter.com/burrow_finance"
+        title="Twitter"
+        target="_blank"
+        rel="noopener noreferrer"
+        color={theme.custom.footerIcon}
+      >
+        <TwitterIcon fill="#979ABE" />
+      </a>
+      <a
+        href="https://discord.gg/rsMyJfHQx9"
+        title="Discord"
+        target="_blank"
+        rel="noopener noreferrer"
+        color={theme.custom.footerIcon}
+      >
+        <DiscordIcon fill="#979ABE" />
+      </a>
+      <a
+        href="https://burrowfinance.medium.com/"
+        title="Medium"
+        target="_blank"
+        rel="noopener noreferrer"
+        color={theme.custom.footerIcon}
+      >
+        <MediumIcon fill="#979ABE" />
+      </a>
+    </Box>
   );
 };

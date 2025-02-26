@@ -11,7 +11,7 @@ function CheckedIcon(props: any) {
       <rect width="16" height="16" rx="4" fill="#D2FF3A" />
       <path
         d="M4 8.22222L6.85714 11L12 6"
-        stroke="#14162B"
+        stroke="white"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"

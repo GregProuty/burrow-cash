@@ -1,6 +1,6 @@
-import { isValidElement } from "react";
+import { isValidElement, useState } from "react";
 import { Box, Stack, ButtonGroup, Button, Typography, Tooltip, useTheme } from "@mui/material";
-import ReactToolTip from "../../ToolTip";
+import { TagToolTip } from "../../ToolTip";
 import { useAccountId } from "../../../hooks/hooks";
 import { useStatsToggle } from "../../../hooks/useStatsToggle";
 import TokenIcon from "../../TokenIcon";
@@ -74,34 +74,35 @@ export const Stat = ({
   title,
   titleTooltip = "",
   amount,
-  tooltip = "",
   labels,
   onClick,
 }: {
   title: string | React.ReactElement;
   titleTooltip?: string;
-  amount: string;
-  tooltip?: string;
+  amount: string | React.ReactElement;
   labels?: any;
   onClick?: () => void;
 }) => {
   return (
-    <div onClick={() => onClick && onClick()} style={{ minHeight: 81 }} className="md:w-[351px]">
+    <div onClick={() => onClick && onClick()} style={{ minHeight: 81 }}>
+      {/* <div onClick={() => onClick && onClick()} style={{ minHeight: 81 }} className="md:w-[351px]"> */}
       <div className="flex items-center gap-1">
         {typeof title === "string" ? <div className="h6 text-gray-300">{title}</div> : title}
-        {titleTooltip && <ReactToolTip content={titleTooltip} />}
+        {titleTooltip && <TagToolTip title={titleTooltip} />}
       </div>
-      <Tooltip title={tooltip} placement="top" arrow>
-        <div className="h2 my-1">{amount}</div>
-      </Tooltip>
+      <div className="h2 my-1">{amount}</div>
+      {/* </Tooltip> */}
       {labels && (
-        <Stack direction="row" gap="4px" flexWrap="wrap">
+        <Stack direction="row" gap="4px" flexWrap="wrap" alignItems="center">
           {isValidElement(labels) ? (
             <Label>{labels}</Label>
           ) : (
             labels?.map((row, i) => {
               const firstData = row[0];
               if (!firstData) return null;
+              if (firstData.type === "component") {
+                return firstData.content;
+              }
               return (
                 <div
                   className="flex gap-1 items-start flex-col md:flex-row md:flex-wrap"
@@ -163,3 +164,54 @@ const Label = ({ children, tooltip = "", bgcolor = "rgba(172, 255, 255, 0.1)", .
     </Stack>
   </Tooltip>
 );
+
+export const StatLabel = ({
+  title,
+  row,
+  wrapStyle,
+  titleClass = "",
+  titleWrapClass = "",
+}: {
+  title: {
+    text: string;
+    textStyle?: any;
+  };
+  wrapStyle?: any;
+  titleClass?: string;
+  titleWrapClass?: string;
+  row?: [{ value: string; icon?: string; valueStyle?: any; valueClass?: string }];
+}) => {
+  return (
+    <div className="flex gap-1 items-start flex-col md:flex-row md:flex-wrap">
+      <div
+        className={`flex md:items-center gap-2 h6 rounded md:rounded-[21px] bg-dark-100 truncate ${titleWrapClass}`}
+        style={wrapStyle || { padding: "3px 6px 5px" }}
+      >
+        <div style={title?.textStyle} className={`h6 text-gray-300 ${titleClass}`}>
+          {title.text}
+        </div>
+        <div className="flex flex-col gap-1 md:flex-row">
+          {row?.map((d, i) => {
+            if (!d.value) {
+              return null;
+            }
+            return (
+              <div
+                style={d.valueStyle}
+                className={`flex items-center gap-1 ${d.valueClass || ""}`}
+                key={`${d.value}${i}`}
+              >
+                {d.icon && (
+                  <div>
+                    <TokenIcon width={15} height={15} icon={d.icon} />
+                  </div>
+                )}
+                {d.value}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};

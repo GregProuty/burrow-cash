@@ -6,7 +6,6 @@ import { useTicker } from "../../hooks/useTicker";
 import CheckNewAppVersion from "../CheckNewAppVersion";
 import Footer from "../Footer";
 import Header from "../Header";
-import Ticker from "../Ticker";
 import Blocked from "../Blocked";
 import selectTheme from "../../utils/theme";
 
@@ -43,11 +42,13 @@ const Layout = ({ children }) => {
   const { hasTicker } = useTicker();
   return (
     <Theme>
-      <PageGrid>
-        <Header />
-        <main className="md:px-10">{children}</main>
-      </PageGrid>
-      <Footer />
+      <div className="md:pb-8 overflow-hidden">
+        <PageGrid>
+          <Header />
+          <main id="root">{children}</main>
+        </PageGrid>
+        {/* <Footer /> */}
+      </div>
     </Theme>
   );
 };

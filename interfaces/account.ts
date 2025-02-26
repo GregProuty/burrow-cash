@@ -1,3 +1,6 @@
+// eslint-disable-next-line import/no-cycle
+import { IPositions } from "../redux/accountState";
+
 interface IFarmId {
   Supplied?: string;
   Borrowed?: string;
@@ -36,12 +39,13 @@ interface IBorrowedAsset {
   token_id: string;
   shares: string;
 }
-
-export interface IAsset {
-  token_id: string;
-  balance: string;
+export interface IAsset extends IMarginAsset {
   shares: string;
   apr: string;
+}
+export interface IMarginAsset {
+  token_id: string;
+  balance: string;
 }
 
 export interface IAccount {
@@ -66,7 +70,27 @@ export interface IAccountDetailed {
   /// Staking
   booster_staking: IBoosterStaking;
 }
-
+export interface IPortfolioAssetOrigin {
+  token_id: string;
+  apr: string;
+  balance: string;
+  shares: string;
+}
+export interface IPositionsOrigin {
+  [shadow_id: string]: {
+    collateral: IPortfolioAssetOrigin[];
+    borrowed: IPortfolioAssetOrigin[];
+  };
+}
+export interface IAccountAllPositionsDetailed {
+  account_id: string;
+  supplied: IAsset[];
+  farms: IFarm[];
+  booster_staking: IBoosterStaking;
+  has_non_farmed_assets: boolean;
+  is_locked: boolean;
+  positions: IPositionsOrigin;
+}
 export interface IBoosterStaking {
   staked_booster_amount: string;
   unlock_timestamp: string;

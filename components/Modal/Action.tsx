@@ -1,7 +1,12 @@
 import { useState, useMemo, useEffect } from "react";
 import Decimal from "decimal.js";
+import { useBtcWalletSelector } from "btc-wallet";
 import { nearTokenId } from "../../utils";
 import { toggleUseAsCollateral, hideModal } from "../../redux/appSlice";
+import {
+  toggleUseAsCollateral as toggleUseAsCollateralMEME,
+  hideModal as hideModalMEME,
+} from "../../redux/appSliceMEME";
 import { getModalData } from "./utils";
 import { repay } from "../../store/actions/repay";
 import { repayFromDeposits } from "../../store/actions/repayFromDeposits";
@@ -9,39 +14,69 @@ import { supply } from "../../store/actions/supply";
 import { deposit } from "../../store/actions/deposit";
 import { borrow } from "../../store/actions/borrow";
 import { withdraw } from "../../store/actions/withdraw";
+import { shadow_action_supply } from "../../store/actions/shadow";
 import { adjustCollateral } from "../../store/actions/adjustCollateral";
 import { useAppSelector, useAppDispatch } from "../../redux/hooks";
-import { getSelectedValues, getAssetData } from "../../redux/appSelectors";
-import { trackActionButton, trackUseAsCollateral } from "../../utils/telemetry";
+import { getSelectedValues, getAssetData, getConfig } from "../../redux/appSelectors";
+import { isMemeCategory } from "../../redux/categorySelectors";
+import { trackActionButton } from "../../utils/telemetry";
 import { useDegenMode } from "../../hooks/hooks";
-import { SubmitButton, AlertWarning } from "./components";
-import { expandToken } from "../../store";
+import { SubmitButton } from "./components";
+import getShadowRecords from "../../api/get-shadows";
+import { expandToken, shrinkToken } from "../../store";
 
-export default function Action({ maxBorrowAmount, healthFactor, poolAsset }) {
+// @ts-ignore
+export default function Action({
+  maxBorrowAmount,
+  healthFactor,
+  collateralType,
+  poolAsset,
+  isDisabled,
+  maxWithdrawAmount,
+  onClose,
+  setFailure,
+  setSuccess,
+}) {
   const [loading, setLoading] = useState(false);
   const { amount, useAsCollateral, isMax } = useAppSelector(getSelectedValues);
+  const { enable_pyth_oracle } = useAppSelector(getConfig); // TODO33 need query from api？
+  const selectedWalletId = window.selector?.store?.getState()?.selectedWalletId;
   const dispatch = useAppDispatch();
   const asset = useAppSelector(getAssetData);
-  const { action = "Deposit", tokenId, borrowApy, price, borrowed } = asset;
+  const { account, autoConnect } = useBtcWalletSelector();
+  const { action = "Deposit", tokenId, borrowApy, price, portfolio, isLpToken, position } = asset;
   const { isRepayFromDeposits } = useDegenMode();
-
+  const isMeme = useAppSelector(isMemeCategory);
   const { available, canUseAsCollateral, extraDecimals, collateral, disabled, decimals } =
     getModalData({
       ...asset,
+      maxWithdrawAmount,
       maxBorrowAmount,
       healthFactor,
       amount,
       isRepayFromDeposits,
     });
-
+  const borrowed = shrinkToken(
+    portfolio?.positions?.[position || ""]?.borrowed?.[tokenId]?.balance || "0",
+    (extraDecimals || 0) + (decimals || 0),
+  );
   useEffect(() => {
     if (!canUseAsCollateral) {
-      dispatch(toggleUseAsCollateral({ useAsCollateral: false }));
+      if (isMeme) {
+        dispatch(toggleUseAsCollateralMEME({ useAsCollateral: false }));
+      } else {
+        dispatch(toggleUseAsCollateral({ useAsCollateral: false }));
+      }
     }
   }, [useAsCollateral]);
 
   const handleActionButtonClick = async () => {
+    if (!account && selectedWalletId === "btc-wallet") {
+      autoConnect();
+      return;
+    }
     setLoading(true);
+
     trackActionButton(action, {
       tokenId,
       amount,
@@ -55,19 +90,54 @@ export default function Action({ maxBorrowAmount, healthFactor, poolAsset }) {
     switch (action) {
       case "Supply":
         if (tokenId === nearTokenId) {
-          await deposit({ amount, useAsCollateral, isMax });
-        } else {
-          await supply({
+          await deposit({ amount, useAsCollateral, isMax, isMeme });
+        } else if (isLpToken) {
+          const shadowRecords = await getShadowRecords();
+          const pool_id = tokenId.split("-")[1];
+          await shadow_action_supply({
             tokenId,
-            extraDecimals,
+            decimals: +(decimals || 0) + +extraDecimals,
             useAsCollateral,
             amount,
             isMax,
+            isRegistered: !!shadowRecords?.[pool_id],
           });
+        } else {
+          try {
+            const result = await supply({
+              tokenId,
+              extraDecimals,
+              useAsCollateral,
+              amount,
+              isMax,
+              isMeme,
+              setSuccess,
+              setFailure,
+              setLoading,
+            });
+            if (result) {
+              setSuccess(true);
+            }
+          } catch (error) {
+            setFailure(true);
+          }
         }
         break;
       case "Borrow": {
-        await borrow({ tokenId, extraDecimals, amount });
+        try {
+          const result = await borrow({
+            tokenId,
+            extraDecimals,
+            amount,
+            collateralType,
+            isMeme,
+          });
+          if (result) {
+            setSuccess(true);
+          }
+        } catch (error) {
+          setFailure(true);
+        }
         break;
       }
       case "Withdraw": {
@@ -76,6 +146,14 @@ export default function Action({ maxBorrowAmount, healthFactor, poolAsset }) {
           extraDecimals,
           amount,
           isMax,
+          isMeme,
+          available,
+          // @ts-ignore
+          assets: assets.data,
+          // @ts-ignore
+          accountPortfolio,
+          // @ts-ignore
+          accountId,
         });
         break;
       }
@@ -85,10 +163,10 @@ export default function Action({ maxBorrowAmount, healthFactor, poolAsset }) {
           extraDecimals,
           amount,
           isMax,
+          isMeme,
         });
         break;
       case "Repay": {
-        // TODO
         let minRepay = "0";
         let interestChargedIn1min = "0";
         if (borrowApy && price && borrowed) {
@@ -97,6 +175,7 @@ export default function Action({ maxBorrowAmount, healthFactor, poolAsset }) {
               .div(365 * 24 * 60)
               .div(100)
               .mul(borrowed)
+              .mul(3)
               .toFixed(),
             decimals,
             0,
@@ -116,16 +195,20 @@ export default function Action({ maxBorrowAmount, healthFactor, poolAsset }) {
             tokenId,
             amount,
             extraDecimals,
+            position: collateralType,
             isMax,
+            isMeme,
           });
         } else {
           await repay({
             tokenId,
             amount,
             extraDecimals,
+            position: collateralType,
             isMax,
             minRepay,
             interestChargedIn1min,
+            isMeme,
           });
         }
         break;
@@ -133,7 +216,9 @@ export default function Action({ maxBorrowAmount, healthFactor, poolAsset }) {
       default:
         break;
     }
-    dispatch(hideModal());
+    // dispatch(hideModal());
+    // dispatch(hideModalMEME());
+    setLoading(false);
   };
   const actionDisabled = useMemo(() => {
     if (action === "Supply" && +amount > 0) return false;
@@ -151,9 +236,10 @@ export default function Action({ maxBorrowAmount, healthFactor, poolAsset }) {
   return (
     <SubmitButton
       action={action}
-      disabled={actionDisabled}
+      disabled={actionDisabled || isDisabled}
       loading={loading}
       onClick={handleActionButtonClick}
+      onClose={onClose}
     />
   );
 }

@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { twMerge } from "tailwind-merge";
 import Decimal from "decimal.js";
+import ReactSlider from "react-slider";
 import { toPrecision } from "../../utils/number";
 
 // temp
@@ -54,7 +55,6 @@ export default function RangeSlider(props: any) {
   function changeValue(v: string, isClickValue?: boolean) {
     let matchedValue;
     const numValue = Number(v);
-    // const toPercent = (100 / splitList.length) * numValue;
     if (isClickValue) {
       matchedValue = numValue;
       if (isMonth) {
@@ -64,7 +64,6 @@ export default function RangeSlider(props: any) {
       const nearestValue = 100 / (splitList.length - 1);
       const ratio = Number(v) / nearestValue;
       const nearest = Math.round(ratio);
-      // console.log("changeValue", splitList.length, nearestValue, Number(v) / nearestValue, nearest);
       if (!Number.isNaN(nearest)) {
         matchedValue = splitList[nearest];
       }
@@ -119,17 +118,58 @@ export default function RangeSlider(props: any) {
         {!selectNavValueOnly && (
           <div
             className={`flex items-center justify-center absolute top-5 rounded-lg py-1 ${
-              actionShowRedColor ? "bg-red-100" : "bg-primary"
+              // actionShowRedColor ? "bg-dark-100" : "bg-primary"
+              // actionShowRedColor ? "bg-dark-100" : "bg-primary"
+              "bg-dark-100"
             }`}
             style={{ marginLeft: "-33px", left: "100%", width: "46px" }}
             ref={tipRef}
           >
-            <span className={`text-sm ${actionShowRedColor ? "text-white" : "text-dark-200"} `}>
+            <span className={`text-sm text-white`}>
               <span className="gotham_bold">{toPrecision(value?.toString(), 0)}</span>%
             </span>
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+export function MonthSlider({ min, max, monthList, months, handleMonthChange }) {
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-1 -mx-1.5">
+        {monthList.map((p) => {
+          return (
+            <div
+              key={p}
+              className="flex flex-col items-center cursor-pointer"
+              onClick={() => {
+                handleMonthChange(p);
+              }}
+            >
+              <span
+                className={twMerge(
+                  `flex items-center justify-center text-xs text-gray-300 w-8 py-0.5 border border-transparent hover:border-v3LiquidityRemoveBarColor rounded-lg`,
+                  p === months && "bg-black bg-opacity-20",
+                )}
+              >
+                {p}
+              </span>
+              <span style={{ height: "5px", width: "1px" }} className="bg-gray-300 mt-1" />
+            </div>
+          );
+        })}
+      </div>
+      <ReactSlider
+        className="month-slider"
+        min={min}
+        max={max}
+        value={months}
+        onChange={(v) => {
+          handleMonthChange(v);
+        }}
+      />
     </div>
   );
 }

@@ -19,7 +19,6 @@ export const farmClaimAll = createAsyncThunk("account/farmClaimAll", async () =>
 
 export const fetchAccount = createAsyncThunk("account/fetchAccount", async () => {
   const account = await getAccount().then(transformAccount);
-
   if (account?.accountId) {
     const wallet = JSON.parse(
       localStorage.getItem("near-wallet-selector:selectedWalletId") || `"undefined"`,
@@ -61,7 +60,7 @@ export const accountSlice = createSlice({
       state.status = action.meta.requestStatus;
       state.fetchedAt = new Date().toString();
 
-      if (!action.payload?.accountId) return;
+      if (!action.payload?.accountId || !window.accountId) return;
 
       const { accountId, balances, portfolio } = action.payload;
 
@@ -70,6 +69,8 @@ export const accountSlice = createSlice({
 
       if (portfolio) {
         state.portfolio = portfolio;
+      } else {
+        state.portfolio = initialState.portfolio;
       }
     });
   },

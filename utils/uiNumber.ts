@@ -1,5 +1,6 @@
 import Decimal from "decimal.js";
 import { formatWithCommas, toInternationalCurrencySystem } from "./number";
+import { beautifyPrice } from "./beautyNumber";
 
 export const formatWithCommas_usd = (v) => {
   if (isInvalid(v)) return "$-";
@@ -28,13 +29,16 @@ export const formatWithCommas_number = (v, d?: number | any) => {
 
 export const toInternationalCurrencySystem_number = (v) => {
   if (isInvalid(v)) return "-";
+  const absDecimal = new Decimal(Decimal.abs(v));
   const decimal = new Decimal(v);
-  if (decimal.eq(0)) {
+  if (absDecimal.eq(0)) {
     return "0";
-  } else if (decimal.lt(0.01)) {
-    return "<0.01";
+  } else if (absDecimal.lt(0.01)) {
+    return decimal.lt(0) ? "-<0.01" : "<0.01";
   } else {
-    return toInternationalCurrencySystem(decimal.toFixed());
+    return decimal.lt(0)
+      ? `-${toInternationalCurrencySystem(decimal.toFixed())}`
+      : toInternationalCurrencySystem(decimal.toFixed());
   }
 };
 export const toInternationalCurrencySystem_usd = (v) => {
@@ -45,7 +49,7 @@ export const toInternationalCurrencySystem_usd = (v) => {
   } else if (decimal.lt(0.01)) {
     return "<$0.01";
   } else {
-    return `$${toInternationalCurrencySystem(decimal.toFixed())}`;
+    return `${toInternationalCurrencySystem(decimal.toFixed())}`;
   }
 };
 
@@ -60,6 +64,23 @@ export const format_apy = (v) => {
     return `${decimal.toFixed(2, Decimal.ROUND_HALF_UP)}%`;
   }
 };
+
+export function digitalProcess(v: string | number, precision: number = 2) {
+  if (isInvalid(v)) return "-";
+  let zero = "";
+  for (let i = 0; i < precision - 1; i++) {
+    zero += "0";
+  }
+  zero = `0.${zero}1`;
+  const decimal = new Decimal(v);
+  if (decimal.eq(0)) {
+    return "0";
+  } else if (decimal.lt(zero)) {
+    return `<${zero}`;
+  } else {
+    return `${decimal.toFixed(precision)}`;
+  }
+}
 
 export const isInvalid = (v) => {
   if (v === "" || v === undefined || v == null) return true;

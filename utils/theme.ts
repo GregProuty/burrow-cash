@@ -8,11 +8,14 @@ const palette = {
   light: {
     mode: "light",
     primary: {
-      main: "#D2FF3A",
+      // main: "#D2FF3A",
+      main: "#FF9900",
       light: "#D5EFE6",
     },
     secondary: {
-      main: "#000741",
+      // main: "#000741",
+      main: "#FF9900",
+
       light: "#c1c2ce",
     },
     info: {
@@ -26,11 +29,15 @@ const palette = {
   dark: {
     mode: "light",
     primary: {
-      main: "#D2FF3A",
+      // main: "#D2FF3A",
+      main: "#FF9900",
+
       light: "#000",
     },
     secondary: {
-      main: "#fff",
+      // main: "#fff",
+      main: "#FF9900",
+
       light: "#3F4361",
     },
     info: {
@@ -66,14 +73,18 @@ declare module "@mui/material/styles" {
 
 const custom = {
   light: {
-    headerBackground: "#14162B",
-    pageBackground: "#14162B",
+    // headerBackground: "#14162B",
+    // pageBackground: "#14162B",
+    headerBackground: "black",
+    pageBackground: "#14161F",
     footerText: "#C0C4E9",
     footerIcon: "#000",
     text: "#000",
-    textStaking: "#232323",
-    background: "#fff",
-    backgroundStaking: "#fff",
+    // textStaking: "#232323",
+    // background: "#fff",
+    // backgroundStaking: "#fff",
+    background: "#14161F",
+    backgroundStaking: "black",
     notConnectedBg: "rgba(255,255,255,0.85)",
     scrollbarBg: "none",
     tableLabelColor: "#8E9295",
@@ -82,14 +93,19 @@ const custom = {
     stakingCardBg: "#fff",
   },
   dark: {
-    headerBackground: "#14162B",
-    pageBackground: "#14162B",
+    // headerBackground: "#14162B",
+    // pageBackground: "#14162B",
+    headerBackground: "white",
+    pageBackground: "white",
     footerText: "#C0C4E9",
     footerIcon: "#7f83a0",
     text: "#fff",
     textStaking: "#fff",
-    background: "#14162B",
-    backgroundStaking: "#31344E",
+    // background: "#14162B",
+    // backgroundStaking: "#31344E",
+    background: "white",
+    backgroundStaking: "white",
+
     notConnectedBg: "rgba(0,0,0,0.85)",
     scrollbarBg: "rgba(0,0,0,0.5)",
     tableLabelColor: "#767E87",

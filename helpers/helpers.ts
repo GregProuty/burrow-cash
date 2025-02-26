@@ -1,5 +1,6 @@
+// @ts-nocheck
 import millify from "millify";
-import { APY_FORMAT, DUST_FORMAT, TOKEN_FORMAT, USD_FORMAT } from "../store";
+import { APY_FORMAT, DUST_FORMAT, NUMBER_FORMAT, TOKEN_FORMAT, USD_FORMAT } from "../store";
 
 export const formatTokenValue = (v) => {
   return Number(v).toLocaleString(undefined, TOKEN_FORMAT);
@@ -30,11 +31,50 @@ export const millifyNumber = (v: string | number, ignoreBelow?: number, isDispla
   return millify(number);
 };
 
+export const formatTokenValueWithMilify = (
+  v,
+  fractionDigits = 2,
+  bigNumberFractionDigits = 0,
+  milifyThreshold = 1000000,
+  zeroPlacement = "-",
+) => {
+  if (v === 0 && zeroPlacement) {
+    return zeroPlacement;
+  }
+  if (Math.abs(Number(v)) >= milifyThreshold) {
+    return bigNumberMilify(Number(v), fractionDigits, bigNumberFractionDigits, zeroPlacement);
+  }
+  return Number(v).toLocaleString(undefined, TOKEN_FORMAT);
+};
+
+export const bigNumberMilify = (
+  n,
+  fractionDigits = 2,
+  bigNumberFractionDigits = 0,
+  zeroPlacement = "-",
+) => {
+  if (n === 0 && zeroPlacement) {
+    return zeroPlacement;
+  }
+  const formatNumber = (num, factor) => {
+    return (+(n / factor).toFixed(fractionDigits)).toLocaleString(undefined, NUMBER_FORMAT);
+  };
+
+  if (n >= 1e3 && n < 1e6) return `${formatNumber(n, 1e3)}K`;
+  if (n >= 1e6 && n < 1e9) return `${formatNumber(n, 1e6)}M`;
+  if (n >= 1e9 && n < 1e12) return `${formatNumber(n, 1e9)}B`;
+  if (n >= 1e12) return `${formatNumber(n, 1e12)}T`;
+
+  return n.toFixed(fractionDigits);
+};
+
 export const removeUndefinedInObj = (obj, removeNull) => {
   Object.keys(obj).forEach((key) => {
     if (removeNull) {
+      // eslint-disable-next-line no-unused-expressions
       [undefined, null].includes(obj[key]) && delete obj[key];
     } else {
+      // eslint-disable-next-line no-unused-expressions
       obj[key] === undefined && delete obj[key];
     }
   });

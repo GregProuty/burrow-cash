@@ -2,7 +2,8 @@ import { Contract } from "near-api-js";
 import BN from "bn.js";
 import Decimal from "decimal.js";
 
-import { defaultNetwork, LOGIC_CONTRACT_NAME } from "./config";
+import { isEmpty } from "lodash";
+import getConfig, { defaultNetwork, LOGIC_CONTRACT_NAME, LOGIC_MEMECONTRACT_NAME } from "./config";
 import { nearMetadata, wooMetadata, sfraxMetadata, fraxMetadata } from "../components/Assets";
 
 import {
@@ -10,17 +11,31 @@ import {
   ChangeMethodsOracle,
   ViewMethodsLogic,
   ViewMethodsOracle,
+  ViewMethodsREFV1,
+  ChangeMethodsREFV1,
+  ViewMethodsPyth,
+  ChangeMethodsPyth,
+  ViewMethodsDcl,
+  ChangeMethodsDcl,
 } from "../interfaces/contract-methods";
-import { IBurrow, IConfig } from "../interfaces/burrow";
+import { IBurrow, IViewReturnType } from "../interfaces/burrow";
 import { getContract } from "../store";
 
 import { getWalletSelector, getAccount, functionCall } from "./wallet-selector-compat";
-import { UIAsset } from "../interfaces";
+import { IAssetFarmReward } from "../interfaces/asset";
+import { FarmData, Portfolio, Farm } from "../redux/accountState";
+// eslint-disable-next-line import/no-cycle
+import { IPortfolioReward } from "../redux/selectors/getAccountRewards";
+import { store } from "../redux/store";
 
 export const getViewAs = () => {
-  const url = new URL(window.location.href.replace("/#", ""));
-  const searchParams = new URLSearchParams(url.search);
-  return searchParams.get("viewAs");
+  if (window.location.href.includes("#instant-url")) {
+    return null;
+  } else {
+    const url = new URL(window.location.href.replace("/#", ""));
+    const searchParams = new URLSearchParams(url.search);
+    return searchParams.get("viewAs");
+  }
 };
 
 interface GetBurrowArgs {
@@ -50,25 +65,11 @@ export const getBurrow = async ({
   hideModal,
   signOut,
 }: GetBurrowArgs = {}): Promise<IBurrow> => {
-  /// because it's being called by multiple components on startup
-  /// all calls wait until setup is complete and then return burrow instance promise
-  const getBurrowInternal = async () => {
-    if (burrow) return burrow;
-    await new Promise((res) => {
-      setTimeout(() => {
-        res({});
-      }, 250);
-    });
-    return getBurrowInternal();
-  };
-  // if (!resetBurrow) return getBurrowInternal();
-  // resetBurrow = false;
-
   const changeAccount = async (accountId) => {
     if (fetchData) fetchData(accountId);
   };
 
-  if (!selector) {
+  if (!selector && fetchData && signOut) {
     selector = await getWalletSelector({
       onAccountChange: changeAccount,
     });
@@ -94,7 +95,7 @@ export const getBurrow = async ({
     methodName: string,
     args: Record<string, unknown> = {},
     json = true,
-  ): Promise<Record<string, any> | string> => {
+  ): Promise<IViewReturnType> => {
     try {
       const viewAccount = await getAccount(getViewAs());
       return await viewAccount.viewFunction(contract.contractId, methodName, args, {
@@ -119,7 +120,7 @@ export const getBurrow = async ({
     deposit = "1",
   ) => {
     const { contractId } = contract;
-    const gas = new BN(50000000000000);
+    const gas = new BN(300000000000000);
     const attachedDeposit = new BN(deposit);
 
     return functionCall({
@@ -138,17 +139,44 @@ export const getBurrow = async ({
     ChangeMethodsLogic,
   );
 
-  // get oracle address from
-  const config = (await view(
-    logicContract,
-    ViewMethodsLogic[ViewMethodsLogic.get_config],
-  )) as IConfig;
-
+  const logicMEMEContract: Contract = await getContract(
+    account,
+    LOGIC_MEMECONTRACT_NAME,
+    ViewMethodsLogic,
+    ChangeMethodsLogic,
+  );
+  const price_oracle_account_id = getConfig().PRICE_ORACLE_ID;
+  const meme_price_oracle_account_id = getConfig().MEME_PRICE_ORACLE_ID;
+  const ref_exchange_id = getConfig().REF_EXCHANGE_ID;
   const oracleContract: Contract = await getContract(
     account,
-    config.oracle_account_id,
+    price_oracle_account_id,
     ViewMethodsOracle,
     ChangeMethodsOracle,
+  );
+  const memeOracleContract: Contract = await getContract(
+    account,
+    meme_price_oracle_account_id,
+    ViewMethodsOracle,
+    ChangeMethodsOracle,
+  );
+  const refv1Contract: Contract = await getContract(
+    account,
+    ref_exchange_id,
+    ViewMethodsREFV1,
+    ChangeMethodsREFV1,
+  );
+  const pythContract: Contract = await getContract(
+    account,
+    getConfig().PYTH_ORACLE_ID,
+    ViewMethodsPyth,
+    ChangeMethodsPyth,
+  );
+  const dclContract: Contract = await getContract(
+    account,
+    getConfig().DCL_EXCHANGE_ID,
+    ViewMethodsDcl,
+    ChangeMethodsDcl,
   );
 
   if (localStorage.getItem("near-wallet-selector:selectedWalletId") == null) {
@@ -169,10 +197,14 @@ export const getBurrow = async ({
     signIn,
     account,
     logicContract,
+    logicMEMEContract,
     oracleContract,
+    refv1Contract,
+    pythContract,
+    dclContract,
+    memeOracleContract,
     view,
     call,
-    config,
   } as IBurrow;
 
   return burrow;
@@ -213,19 +245,112 @@ export function decimalMin(a: string | number | Decimal, b: string | number | De
   b = new Decimal(b);
   return a.lt(b) ? a : b;
 }
+
 export function standardizeAsset(asset) {
-  if (asset.symbol === "wNEAR") {
-    asset.symbol = nearMetadata.symbol;
-    asset.icon = nearMetadata.icon;
+  const serializationAsset = JSON.parse(JSON.stringify(asset || {}));
+  if (serializationAsset.symbol === "wNEAR") {
+    serializationAsset.symbol = nearMetadata.symbol;
+    serializationAsset.icon = nearMetadata.icon;
   }
-  if (asset.symbol === "WOO") {
-    asset.icon = wooMetadata.icon;
+  if (serializationAsset.metadata?.symbol === "wNEAR") {
+    serializationAsset.metadata.symbol = nearMetadata.symbol;
+    serializationAsset.metadata.icon = nearMetadata.icon;
   }
-  if (asset.symbol === "sFRAX") {
-    asset.icon = sfraxMetadata.icon;
+  if (serializationAsset.symbol === "WOO") {
+    serializationAsset.icon = wooMetadata.icon;
   }
-  if (asset.symbol === "FRAX") {
-    asset.icon = fraxMetadata.icon;
+  if (serializationAsset.metadata?.symbol === "WOO") {
+    serializationAsset.metadata.icon = wooMetadata.icon;
   }
-  return asset;
+  if (serializationAsset.symbol === "sFRAX") {
+    serializationAsset.icon = sfraxMetadata.icon;
+  }
+  if (serializationAsset.metadata?.symbol === "sFRAX") {
+    serializationAsset.metadata.icon = sfraxMetadata.icon;
+  }
+  if (serializationAsset.symbol === "FRAX") {
+    serializationAsset.icon = fraxMetadata.icon;
+  }
+  if (serializationAsset.metadata?.symbol === "FRAX") {
+    serializationAsset.metadata.icon = fraxMetadata.icon;
+  }
+  return serializationAsset;
+}
+
+interface IAssetFarmRewards {
+  [token: string]: IAssetFarmReward;
+}
+interface IAccountFarmRewards {
+  [token: string]: FarmData;
+}
+export function filterSentOutFarms(FarmsPending: IAssetFarmRewards) {
+  // Filter out the ones rewards sent out
+  const tokenNetFarms = Object.entries(FarmsPending).reduce((acc, cur) => {
+    const [rewardTokenId, farmData] = cur;
+    if (farmData.remaining_rewards !== "0") {
+      return {
+        ...acc,
+        [rewardTokenId]: farmData,
+      };
+    }
+    return acc;
+  }, {}) as IAssetFarmRewards;
+  return tokenNetFarms;
+}
+export function filterAccountSentOutFarms(FarmsPending: IAccountFarmRewards) {
+  // Filter out the ones rewards sent out
+  const accountTokenNetFarms = Object.entries(FarmsPending).reduce((acc, cur) => {
+    const [rewardTokenId, farmData] = cur;
+    if (farmData.asset_farm_reward.remaining_rewards !== "0") {
+      return {
+        ...acc,
+        [rewardTokenId]: farmData,
+      };
+    }
+    return acc;
+  }, {}) as IAccountFarmRewards;
+  return accountTokenNetFarms;
+}
+export function filterAccountSentOutRewards(RewardsPending: any) {
+  // Filter out the ones rewards sent out
+  const accountTokenNetFarms = Object.entries(RewardsPending).reduce((acc, cur) => {
+    const [rewardTokenId, rewardData] = cur as any;
+    if (rewardData.remaining_rewards !== "0") {
+      return {
+        ...acc,
+        [rewardTokenId]: rewardData,
+      };
+    }
+    return acc;
+  }, {}) as IPortfolioReward;
+  return accountTokenNetFarms;
+}
+export function filterAccountAllSentOutFarms(portfolio: Portfolio) {
+  // Filter out the ones rewards sent out
+  const { supplied, borrowed, netTvl, tokennetbalance } = portfolio.farms;
+  const newSupplied = filterTypeFarms(supplied);
+  const newBorrowed = filterTypeFarms(borrowed);
+  const newTokennetbalance = filterTypeFarms(tokennetbalance);
+  const newNetTvl = filterAccountSentOutFarms(netTvl);
+  return {
+    supplied: newSupplied,
+    borrowed: newBorrowed,
+    tokennetbalance: newTokennetbalance,
+    netTvl: newNetTvl,
+  };
+}
+function filterTypeFarms(typeFarmData): IFarms {
+  const newTypeFarmData = Object.entries(typeFarmData).reduce((acc, [tokenId, farm]: any) => {
+    const newFarm = JSON.parse(JSON.stringify(filterAccountSentOutFarms(farm)));
+    if (isEmpty(newFarm)) return acc;
+    return {
+      ...acc,
+      [tokenId]: newFarm,
+    };
+  }, {});
+  return newTypeFarmData;
+}
+
+interface IFarms {
+  [tokenId: string]: Farm;
 }

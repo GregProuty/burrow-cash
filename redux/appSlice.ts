@@ -3,7 +3,7 @@ import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit";
 import { getConfig } from "../api";
 import { IConfig } from "../interfaces";
 
-type TokenAction = "Supply" | "Borrow" | "Repay" | "Adjust" | "Withdraw";
+export type TokenAction = "Supply" | "Borrow" | "Repay" | "Adjust" | "Withdraw";
 
 export type IOrder = "asc" | "desc";
 
@@ -30,7 +30,6 @@ export interface AppState {
   protocolStats: boolean;
   displayAsTokenValue: boolean;
   showTicker: boolean;
-  showDust: boolean;
   slimStats: boolean;
   showDailyReturns: boolean;
   fullDigits: {
@@ -45,6 +44,7 @@ export interface AppState {
     useAsCollateral: boolean;
     amount: string;
     isMax: boolean;
+    position?: string;
   };
   staking: {
     amount: number;
@@ -79,7 +79,6 @@ export const initialState: AppState = {
   showInfo: true,
   protocolStats: true,
   displayAsTokenValue: true,
-  showDust: false,
   showTicker: false,
   slimStats: false,
   showDailyReturns: false,
@@ -95,6 +94,7 @@ export const initialState: AppState = {
     useAsCollateral: false,
     amount: "0",
     isMax: false,
+    position: undefined,
   },
   staking: {
     amount: 0,
@@ -102,7 +102,7 @@ export const initialState: AppState = {
   },
   tableSorting: {
     market: {
-      property: "totalSupply",
+      property: "totalSupplyMoney",
       order: "desc" as IOrder,
     },
     portfolioDeposited: {
@@ -124,8 +124,14 @@ export const initialState: AppState = {
     maximum_staleness_duration_sec: 0,
     minimum_staking_duration_sec: 0,
     oracle_account_id: "",
+    ref_exchange_id: "",
     owner_id: "",
     x_booster_multiplier_at_maximum_staking_duration: 0,
+    boost_suppress_factor: 0,
+    enable_price_oracle: false,
+    enable_pyth_oracle: true,
+    meme_oracle_account_id: "",
+    meme_ref_exchange_id: "",
   },
 };
 
@@ -139,11 +145,17 @@ export const appSlice = createSlice({
   initialState,
   reducers: {
     hideModal(state) {
+      console.log("hideModal !!!!!!!!!!!!!!!!");
       state.showModal = false;
     },
     showModal(
       state,
-      action: PayloadAction<{ action: TokenAction; amount: string; tokenId: string }>,
+      action: PayloadAction<{
+        action: TokenAction;
+        amount: string;
+        tokenId: string;
+        position?: string;
+      }>,
     ) {
       state.selected = { ...state.selected, isMax: false, ...action.payload };
       state.showModal = true;
@@ -152,14 +164,14 @@ export const appSlice = createSlice({
       state.selected.amount = action.payload.amount;
       state.selected.isMax = action.payload.isMax;
     },
+    updatePosition(state, action: PayloadAction<{ position: string }>) {
+      state.selected.position = action.payload.position;
+    },
     toggleUseAsCollateral(state, action: PayloadAction<{ useAsCollateral: boolean }>) {
       state.selected.useAsCollateral = action.payload.useAsCollateral;
     },
     toggleDisplayValues(state) {
       state.displayAsTokenValue = !state.displayAsTokenValue;
-    },
-    toggleShowDust(state) {
-      state.showDust = !state.showDust;
     },
     toggleSlimStats(state) {
       state.slimStats = !state.slimStats;
@@ -229,7 +241,6 @@ export const {
   updateAmount,
   toggleUseAsCollateral,
   toggleDisplayValues,
-  toggleShowDust,
   toggleSlimStats,
   setFullDigits,
   toggleShowTicker,
@@ -245,6 +256,7 @@ export const {
   setTheme,
   setUnreadLiquidation,
   setToastMessage,
+  updatePosition,
 } = appSlice.actions;
 
 export default appSlice.reducer;

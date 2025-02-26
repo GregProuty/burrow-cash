@@ -1,22 +1,14 @@
 import { styled } from "@mui/material/styles";
 import { Toolbar, Link, MenuItem } from "@mui/material";
 import { display } from "@mui/system";
+// import "@fontsource/figtree"; // If using fontsource package
 
-export const Wrapper = styled(Toolbar)(({ theme }) => ({
-  display: "grid",
-  color: "white",
-  [theme.breakpoints.down("sm")]: {
-    alignItems: "start",
-    marginTop: "0.5rem",
-    gridTemplateAreas: `
-    "logo wallet"
-    "menu menu"`,
-  },
-  [theme.breakpoints.up("sm")]: {
-    gridTemplateAreas: `"logo menu wallet"`,
-    gridTemplateColumns: "auto auto 1fr",
-    gap: "5rem",
-  },
+export const Wrapper = styled("div")(({ theme }) => ({
+  display: "flex", // Enable flex layout
+  alignItems: "center",
+  justifyContent: "space-between", // Ensure children spread out
+  width: "100%", // Full width
+  position: "relative",
 }));
 
 export const Logo = styled("div")(() => ({
@@ -30,13 +22,13 @@ export const Logo = styled("div")(() => ({
 }));
 
 export const Menu = styled("div")(({ theme }) => ({
-  display: "flex",
+  display: "flex", // Ensure flex layout
+  flexGrow: 1, // Allow the element to grow
   alignItems: "center",
+  justifyContent: "flex-end",
   gridArea: "menu",
-  // gap: "0.5rem",
-  gap: "55px",
-  gridTemplateColumns: "repeat(4, 1fr)",
-  marginRight: "auto",
+  gap: "55px", // Space between items
+  width: "100%", // Take the full width of the parent
   [theme.breakpoints.down("sm")]: {
     margin: "0 auto",
     marginTop: "1rem",
@@ -45,12 +37,13 @@ export const Menu = styled("div")(({ theme }) => ({
 
 export const LinkStyled = styled(Link)(({ theme }) => ({
   color: "white",
+  fontFamily: "Figtree, sans-serif",
   textDecoration: "none",
-  fontFamily: "work-sans",
   textAlign: "center",
   fontSize: "16px",
   lineHeight: 1.75,
   letterSpacing: "0.02857rem",
+  fontWeight: 500,
   paddingTop: 4,
   paddingBottom: 4,
   cursor: "pointer",
@@ -60,7 +53,9 @@ export const LinkStyled = styled(Link)(({ theme }) => ({
 }));
 
 export const StyledMenuItem = styled(MenuItem)(({ theme }) => ({
-  color: theme.custom.text,
+  // color: theme.custom.text,
+  color: "red",
+  // color: "white",
   "&:hover": {
     backgroundColor: theme.palette.primary.light,
   },

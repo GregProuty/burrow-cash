@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { BeatLoader } from "react-spinners";
 import { twMerge } from "tailwind-merge";
+import { Modal, Box, useTheme } from "@mui/material";
 import SemiCircleProgressBar from "../../components/SemiCircleProgressBar/SemiCircleProgressBar";
 import { useUserHealth } from "../../hooks/useUserHealth";
-import { formatTokenValue, formatUSDValue, isMobileDevice } from "../../helpers/helpers";
+import { formatTokenValue, isMobileDevice } from "../../helpers/helpers";
 import CustomButton from "../../components/CustomButton/CustomButton";
 import { useRewards } from "../../hooks/useRewards";
 import ClaimAllRewards from "../../components/ClaimAllRewards";
@@ -11,26 +12,46 @@ import ModalHistoryInfo from "./modalHistoryInfo";
 import { modalProps } from "../../interfaces/common";
 import { DangerIcon, QuestionIcon, RecordsIcon } from "../../components/Icons/Icons";
 import CustomTooltips from "../../components/CustomTooltips/CustomTooltips";
-import { useAccountId, useNonFarmedAssets, useUnreadLiquidation } from "../../hooks/hooks";
-import { ProtocolDailyRewards, UserDailyRewards } from "../../components/Header/stats/rewards";
+import { useUnreadLiquidation } from "../../hooks/hooks";
+import { UserDailyRewards } from "../../components/Header/stats/rewards";
 import { UserLiquidity } from "../../components/Header/stats/liquidity";
 import { APY } from "../../components/Header/stats/apy";
 import { ContentBox } from "../../components/ContentBox/ContentBox";
-import ToolTip from "../../components/ToolTip";
+import { StatLabel } from "../../components/Header/stats/components";
+import { TagToolTip } from "../../components/ToolTip";
+import { Wrapper } from "../../components/Modal/style";
+import { CloseIcon } from "../../components/Modal/svg";
 
-const DashboardOverview = ({ suppliedRows, borrowedRows }) => {
+const DashboardOverview = ({ suppliedRows, borrowedRows, memeCategory }) => {
   const [modal, setModal] = useState<modalProps>({
     name: "",
     data: null,
   });
-  const userHealth = useUserHealth();
-  const rewardsObj = useRewards();
-  const { unreadLiquidation, fetchUnreadLiquidation } = useUnreadLiquidation();
+  const [userHealthCur, setUserHealthCur] = useState<any>();
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const isMobile = isMobileDevice();
+  const theme = useTheme();
+  const userHealth = useUserHealth(memeCategory);
+  const rewardsObj = useRewards(memeCategory);
+  const { unreadLiquidation, fetchUnreadLiquidation } = useUnreadLiquidation({
+    memeCategory,
+  });
+  const openModal = () => {
+    setIsModalOpen(true);
+  };
+  const closeModal = () => {
+    setIsModalOpen(false);
+  };
 
   useEffect(() => {
     fetchUnreadLiquidation().then();
   }, []);
+
+  useEffect(() => {
+    if (userHealth?.allHealths?.length && userHealth?.hasBorrow) {
+      handleHealthClick(userHealth.allHealths[0]);
+    }
+  }, [JSON.stringify(userHealth)]);
 
   let totalSuppliedUSD = 0;
   suppliedRows?.forEach((d) => {
@@ -82,16 +103,32 @@ const DashboardOverview = ({ suppliedRows, borrowedRows }) => {
 
   const unclaimNodes = rewardsObj?.data?.array.map(({ data, tokenId }) => {
     return (
-      <div className="flex justify-between mb-1 items-center" key={tokenId}>
+      <div className="flex justify-between mb-4 items-center" key={tokenId}>
         <div className="flex items-center gap-1.5">
           <img src={data?.icon} className="w-[26px] h-[26px] rounded-full" alt="" />
-          <span>{data?.symbol}</span>
+          <span className="text-gray-300">{data?.symbol}</span>
         </div>
+        <div className="flex-grow border-t border-dashed border-gray-300 mx-4" />
         <div>{formatTokenValue(data?.unclaimedAmount)}</div>
       </div>
     );
   });
 
+  const handleHealthClick = (o) => {
+    const valueLocale = o.healthFactor;
+    setUserHealthCur({
+      ...userHealth,
+      id: o.id,
+      healthFactor: valueLocale,
+      data: {
+        label: o.healthStatus,
+        valueLabel: `${valueLocale}%`,
+        valueLocale,
+      },
+    });
+  };
+
+  const hasMultiHealths = userHealth?.allHealths?.length > 1 && userHealth?.hasBorrow;
   return (
     <>
       <div className="flex gap-2 justify-between items-center mb-4 lg3:hidden">
@@ -101,67 +138,72 @@ const DashboardOverview = ({ suppliedRows, borrowedRows }) => {
           {recordsButton}
         </div>
       </div>
-      <ContentBox className="mb-8">
+      <ContentBox className="mb-8 mt-8">
         <div className="lg3:flex lg3:justify-between">
           <div className="mb-4 lg3:max-w-[640px] lg3:mb-0">
-            <div className="flex gap-2 justify-between lg3:gap-6 lg3:gap-8">
+            <div className="flex gap-2 justify-between lg3:gap-6">
               <div className="gap-6 flex flex-col flex-2">
-                <UserLiquidity />
-                <UserDailyRewards />
+                <UserLiquidity memeCategory={memeCategory} />
+                <UserDailyRewards memeCategory={memeCategory} />
               </div>
 
-              <div className="gap-6 flex flex-col flex-1">
-                <APY />
+              <div className="gap-6 flex flex-col">
+                <APY memeCategory={memeCategory} />
                 <div className="flex flex-col">
-                  {/* <OverviewItem */}
-                  {/*  title="Unclaimed Rewards" */}
-                  {/*  value={rewardsObj?.data?.totalUnClaimUSDDisplay || "$0"} */}
-                  {/* /> */}
-                  <div className="h6 text-gray-300">Unclaimed Rewards</div>
-                  <div className="flex flex-col items-start lg3:flex-row lg3:items-center lg3:gap-4">
+                  <div className="h6 text-gray-300 flex items-center gap-1">
+                    Unclaimed Rewards
+                    <TagToolTip title="Base APY earnings added to your supply balance." />
+                  </div>
+                  <div className="items-start lg3:flex-row lg3:items-center lg3:gap-4">
                     <div className="flex items-center gap-4 my-1">
                       <div className="h2">{rewardsObj?.data?.totalUnClaimUSDDisplay || "$0"}</div>
                       <div className="flex" style={{ marginRight: 5 }}>
-                        {rewardsObj?.brrr?.icon ? (
-                          <img
-                            src={rewardsObj?.brrr?.icon}
-                            width={26}
-                            height={26}
-                            alt="token"
-                            className="rounded-full"
-                            style={{ margin: -3 }}
-                          />
-                        ) : null}
-
-                        {rewardsObj?.extra?.length
-                          ? rewardsObj.extra.map((d, i) => {
-                              const extraData = d?.[1];
-                              return (
-                                <img
-                                  src={extraData?.icon}
-                                  width={26}
-                                  key={(extraData?.tokenId || "0") + i}
-                                  height={26}
-                                  alt="token"
-                                  className="rounded-full"
-                                  style={{ margin: -3 }}
-                                />
-                              );
-                            })
-                          : null}
+                        {rewardsObj?.data?.array.map(({ data, tokenId }) => {
+                          return (
+                            <img
+                              src={data?.icon}
+                              width={20}
+                              key={tokenId}
+                              height={20}
+                              alt="token"
+                              className="rounded-full"
+                              style={{ margin: -3 }}
+                            />
+                          );
+                        })}
                       </div>
                     </div>
 
                     {rewardsObj?.data?.totalUnClaimUSD > 0 && (
                       <div className="mt-1 lg3:mt-0">
-                        <CustomTooltips
-                          text={unclaimNodes}
-                          style={{
-                            width: 170,
-                          }}
+                        <div
+                          className="flex items-center justify-center bg-primary rounded-md cursor-pointer text-sm font-bold text-dark-200 hover:opacity-80 w-20 h-8 mt-1.5"
+                          onClick={openModal}
                         >
-                          <ClaimAllRewards Button={ClaimButton} location="dashboard" />
-                        </CustomTooltips>
+                          Claim
+                        </div>
+                        <Modal open={isModalOpen} onClose={closeModal}>
+                          <Wrapper
+                            sx={{
+                              "& *::-webkit-scrollbar": {
+                                backgroundColor: theme.custom.scrollbarBg,
+                              },
+                            }}
+                          >
+                            <Box sx={{ p: ["20px", "20px"] }}>
+                              <div className="flex items-center justify-between text-lg text-white mb-7">
+                                <span className="text-lg font-bold">Claim Rewards</span>
+                                <CloseIcon onClick={closeModal} className="cursor-pointer" />
+                              </div>
+                              {unclaimNodes}
+                              <ClaimAllRewards
+                                Button={ClaimButton}
+                                onDone={closeModal}
+                                location="dashboard"
+                              />
+                            </Box>
+                          </Wrapper>
+                        </Modal>
                       </div>
                     )}
                   </div>
@@ -175,8 +217,56 @@ const DashboardOverview = ({ suppliedRows, borrowedRows }) => {
               {recordsButton}
             </div>
 
-            <div className="relative lg3:mr-10">
-              <HealthFactor userHealth={userHealth} />
+            <div className="relative flex xsm2:flex-col xsm:items-center items-end gap-4">
+              <HealthFactor userHealth={userHealthCur} />
+              {hasMultiHealths ? (
+                <div className="lp-healths flex flex-col items-center gap-2 mt-4">
+                  {userHealth.allHealths.map((value: any) => {
+                    const isActive = value.id === userHealthCur?.id;
+                    const healthColor = {
+                      good: "text-primary",
+                      warning: "text-warning",
+                      danger: "text-red-100",
+                    };
+
+                    let tokensName = value?.type;
+                    value?.metadata?.tokens?.forEach((d, i) => {
+                      const isLast = i === value.metadata.tokens.length - 1;
+                      if (i === 0) {
+                        tokensName += ":";
+                      }
+                      tokensName += `${d.metadata.symbol}${!isLast ? "-" : ""}`;
+                    });
+                    return (
+                      <div
+                        key={value.id}
+                        className={`cursor-pointer relative health-tab ${
+                          isActive && "health-tab-active"
+                        }`}
+                        onClick={() => handleHealthClick(value)}
+                      >
+                        {isActive && <div className="arrow-left" />}
+                        <StatLabel
+                          title={{ text: tokensName }}
+                          wrapStyle={{
+                            background: "none",
+                            border: "1px solid #2E304B",
+                            padding: "7px 8px",
+                          }}
+                          titleWrapClass="w-[158px] rounded-[4px] md:rounded-[4px]"
+                          titleClass="w-[118px] truncate"
+                          row={[
+                            {
+                              value: `${value?.healthFactor}%`,
+                              valueClass: `${healthColor[value.healthStatus]}`,
+                            },
+                          ]}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -195,6 +285,9 @@ const HealthFactor = ({ userHealth }) => {
   const { data, healthFactor, lowHealthFactor, dangerHealthFactor } = userHealth || {};
   const isDanger = healthFactor !== -1 && healthFactor < dangerHealthFactor;
   const isWarning = healthFactor !== -1 && healthFactor < lowHealthFactor;
+  const healthFactorLabel = [-1, null, undefined].includes(healthFactor)
+    ? "-%"
+    : `${healthFactor}%`;
   const isMobile = isMobileDevice();
 
   let dangerTooltipStyles = {};
@@ -235,7 +328,7 @@ const HealthFactor = ({ userHealth }) => {
               <DangerIcon />
             </CustomTooltips>
           )}
-          {data.valueLabel}
+          {healthFactorLabel}
         </div>
         <div className="h5 text-gray-300 flex gap-1 items-center justify-center">
           Health Factor
@@ -253,40 +346,12 @@ const HealthFactor = ({ userHealth }) => {
   );
 };
 
-type OverviewItemProps = {
-  title: string;
-  value?: any;
-  labels?: any;
-};
-const OverviewItem = ({ title, value, labels }: OverviewItemProps) => {
-  return (
-    <div>
-      <div className="h6 text-gray-300">{title}</div>
-      <div className="h2">{value}</div>
-      {labels?.map((row, i) => (
-        <div className="flex gap-2" key={i}>
-          {row?.map((d) => (
-            <div
-              key={d.text}
-              className="flex items-center gap-2 h5 rounded-[21px] bg-dark-100"
-              style={{ padding: "1px 8px" }}
-            >
-              <div style={d.textStyle}>{d.text}</div>
-              <div style={d.valueStyle}>{d.value}</div>
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-};
-
 const ClaimButton = (props) => {
   const { loading, disabled } = props;
   return (
     <div
       {...props}
-      className="flex items-center justify-center bg-primary rounded-md cursor-pointer text-sm font-bold text-dark-200 hover:opacity-80 w-20 h-8"
+      className="flex items-center justify-center bg-primary rounded-md cursor-pointer text-sm font-bold text-dark-200 hover:opacity-80 w-full h-8 mt-1.5 "
     >
       {loading ? <BeatLoader size={5} color="#14162B" /> : <>Claim</>}
     </div>
