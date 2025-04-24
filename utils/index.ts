@@ -97,12 +97,14 @@ export const getBurrow = async ({
   ): Promise<Record<string, any> | string> => {
     try {
       const viewAccount = await getAccount(getViewAs());
-      return await viewAccount.viewFunction(contract.contractId, methodName, args, {
-        // always parse to string, JSON parser will fail if its not a json
+      return await viewAccount.viewFunction({
+        contractId: contract.contractId,
+        methodName,
+        args,
         parse: (data: Uint8Array) => {
           const result = Buffer.from(data).toString();
           return json ? JSON.parse(result) : result;
-        },
+        }
       });
     } catch (err: any) {
       console.error(
