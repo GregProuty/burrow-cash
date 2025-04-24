@@ -1,6 +1,9 @@
 {
   "version": "0.2.0",
   "license": "UNLICENSED",
+  "engines": {
+    "node": "16.x"
+  },
   "scripts": {
     "dev": "next",
     "build": "next build",
@@ -62,9 +65,9 @@
     "lodash": "^4.17.21",
     "luxon": "^3.0.4",
     "millify": "^5.0.1",
-    "near-api-js": "~0.44.2",
+    "near-api-js": "^4.0.0",
     "neth": "^0.5.8",
-    "next": "latest",
+    "next": "13.4.0",
     "pluralize": "^8.0.0",
     "postcss": "^8.4.28",
     "posthog-js": "^1.20.2",
