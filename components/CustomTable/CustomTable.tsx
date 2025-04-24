@@ -159,7 +159,7 @@ const CustomTable = ({
       });
       return (
         <div
-          className={twMerge("custom-table-row", actionRow && "table-row-hover")}
+          className={twMerge("custom-table-row", actionRow ? "table-row-hover" : undefined)}
           key={i}
           onMouseEnter={() => handleRowEnter(d, i)}
         >
