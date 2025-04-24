@@ -81,7 +81,7 @@ module.exports = {
       {
         source: "/",
         destination: "/unstaking",
-        permanent: true,
+        permanent: false,
       },
     ];
   },
