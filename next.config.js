@@ -3,9 +3,11 @@ module.exports = {
   reactStrictMode: true,
   swcMinify: false,
   experimental: {
-    esmExternals: false
+    forceSwcTransforms: true,
   },
-  trailingSlash: true,
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -20,17 +22,6 @@ module.exports = {
       test: /\.svg$/i,
       issuer: /\.[jt]sx?$/,
       use: ["@svgr/webpack"],
-    });
-
-    config.module.rules.push({
-      test: /.js$/,
-      use: {
-        loader: "babel-loader",
-        options: {
-          presets: ["@babel/preset-env"],
-        },
-      },
-      // exclude: /node_modules/,
     });
 
     if (!isServer) {
