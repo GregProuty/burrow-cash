@@ -19,7 +19,8 @@ export const BRRR_TOKEN = {
 
 export const WALLET_CONNECT_ID =
   process.env.NEXT_PUBLIC_WALLET_CONNECT_ID || ("87e549918631f833447b56c15354e450" as string);
-
+  console.log('aloha process.env.NEXT_PUBLIC_WALLET_CONNECT_ID', process.env.NEXT_PUBLIC_WALLET_CONNECT_ID)
+  
 export const missingPriceTokens = [REF_TOKEN, META_TOKEN, BRRR_TOKEN];
 const getConfig = (env: string = defaultNetwork) => {
   switch (env) {
