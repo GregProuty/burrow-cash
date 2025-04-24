@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 module.exports = {
   reactStrictMode: true,
+  swcMinify: false,
+  experimental: {
+    esmExternals: false
+  },
   trailingSlash: true,
   eslint: {
     ignoreDuringBuilds: true,

@@ -1,5 +1,6 @@
 {
   "buildCommand": "npm run vercel-build",
-  "installCommand": "npm install --legacy-peer-deps --no-optional",
-  "framework": "nextjs"
+  "installCommand": "npm install --legacy-peer-deps --no-optional && npm install --save-dev @babel/core @babel/preset-env @babel/preset-react @babel/preset-typescript",
+  "framework": "nextjs",
+  "outputDirectory": "out"
 } 
