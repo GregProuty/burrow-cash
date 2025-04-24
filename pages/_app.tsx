@@ -4,7 +4,7 @@ import { Provider } from "react-redux";
 import type { AppProps } from "next/app";
 import { PersistGate } from "redux-persist/integration/react";
 import { init, ErrorBoundary } from "@sentry/react";
-import { Integrations } from "@sentry/tracing";
+import { BrowserTracing } from "@sentry/tracing";
 import posthogJs from "posthog-js";
 import { useIdle, useInterval } from "react-use";
 
@@ -23,9 +23,7 @@ import { ToastMessage } from "../components/ToastMessage";
 const SENTRY_ORG = process.env.NEXT_PUBLIC_SENTRY_ORG as string;
 const SENTRY_PID = process.env.NEXT_PUBLIC_SENTRY_PID as unknown as number;
 
-const integrations = [new Integrations.BrowserTracing()] as Array<
-  Integrations.BrowserTracing | any
->;
+const integrations = [new BrowserTracing()] as Array<any>;
 
 if (isPostHogEnabled) {
   integrations.push(new posthogJs.SentryIntegration(posthog, SENTRY_ORG, SENTRY_PID));
