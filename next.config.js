@@ -1,12 +1,6 @@
 /** @type {import('next').NextConfig} */
 const path = require('path');
 
-// Simplest approach - directly define mocks in the config
-const walletConnectMocks = {
-  '@walletconnect/modal': path.resolve(__dirname, './utils/walletconnect-modal.js'),
-  '@walletconnect/sign-client': path.resolve(__dirname, './utils/walletconnect-sign-client.js')
-};
-
 module.exports = {
   reactStrictMode: true,
   swcMinify: false,
@@ -48,19 +42,16 @@ module.exports = {
       use: ["@svgr/webpack"],
     });
 
-    // Handle WalletConnect modules
-    if (isServer) {
-      // For the server build, mark WalletConnect modules as external
-      const externals = [...config.externals];
-      
-      // Add our problematic modules to externals
-      config.externals = [
-        ...externals,
-        '@walletconnect/modal',
-        '@walletconnect/sign-client'
-      ];
-    } else {
-      // For the client build, provide polyfills
+    // Resolve module aliases - the key change is here
+    // Instead of trying to mock the dependencies, we directly replace the problematic module
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      // Replace the entire @near-wallet-selector/wallet-connect module with our mock
+      '@near-wallet-selector/wallet-connect': path.resolve(__dirname, './utils/mock-wallet-connect.js')
+    };
+
+    // For client-side builds, provide necessary polyfills
+    if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
@@ -74,12 +65,6 @@ module.exports = {
         os: require.resolve('os-browserify/browser'),
       };
     }
-
-    // Replace problematic modules with our mocks using aliases (this is the key part)
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      ...walletConnectMocks
-    };
 
     return config;
   },
