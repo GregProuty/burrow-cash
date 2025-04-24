@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 const path = require('path');
 
+// Simplest approach - directly define mocks in the config
+const walletConnectMocks = {
+  '@walletconnect/modal': path.resolve(__dirname, './utils/walletconnect-modal.js'),
+  '@walletconnect/sign-client': path.resolve(__dirname, './utils/walletconnect-sign-client.js')
+};
+
 module.exports = {
   reactStrictMode: true,
   swcMinify: false,
@@ -21,55 +27,40 @@ module.exports = {
     ignoreDuringBuilds: true,
   },
   webpack(config, { isServer, webpack, buildId }) {
+    // Define build ID
     config.plugins.push(
       new webpack.DefinePlugin({
         "process.env.CONFIG_BUILD_ID": JSON.stringify(buildId),
-      }),
+      })
     );
 
-    // Add additional plugins to handle WalletConnect better
+    // Provide Buffer for the browser
     config.plugins.push(
       new webpack.ProvidePlugin({
         Buffer: ['buffer', 'Buffer'],
       })
     );
 
-    // Create aliases for WalletConnect modules to use our mocks
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@walletconnect/modal': path.resolve(__dirname, './utils/walletconnect-modal.js'),
-      '@walletconnect/sign-client': path.resolve(__dirname, './utils/walletconnect-sign-client.js'),
-    };
-
+    // SVG support
     config.module.rules.push({
       test: /\.svg$/i,
       issuer: /\.[jt]sx?$/,
       use: ["@svgr/webpack"],
     });
 
+    // Handle WalletConnect modules
     if (isServer) {
-      // Add externals for server-side rendering
-      const originalExternals = [...config.externals];
+      // For the server build, mark WalletConnect modules as external
+      const externals = [...config.externals];
       
+      // Add our problematic modules to externals
       config.externals = [
-        (context, request, callback) => {
-          // Add specific packages to the externals
-          if (/^@walletconnect\//.test(request)) {
-            return callback(null, `commonjs ${request}`);
-          }
-          
-          // Process the original externals
-          if (typeof originalExternals[0] === 'function') {
-            originalExternals[0](context, request, callback);
-          } else {
-            callback();
-          }
-        },
-        ...(typeof originalExternals[0] === 'function' ? originalExternals.slice(1) : originalExternals),
+        ...externals,
+        '@walletconnect/modal',
+        '@walletconnect/sign-client'
       ];
-    }
-
-    if (!isServer) {
+    } else {
+      // For the client build, provide polyfills
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
@@ -83,6 +74,12 @@ module.exports = {
         os: require.resolve('os-browserify/browser'),
       };
     }
+
+    // Replace problematic modules with our mocks using aliases (this is the key part)
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      ...walletConnectMocks
+    };
 
     return config;
   },

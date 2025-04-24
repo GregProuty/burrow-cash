@@ -1,17 +1,15 @@
 import dynamic from 'next/dynamic';
 import React from 'react';
 
-// Dynamic component that only loads in browser, not during SSR
-const WalletConnectComponent = dynamic(
-  () => import('../utils/disable-wallet-connect').then(() => {
-    // Return a component that just renders its children
-    return ({ children }) => <>{children}</>;
-  }),
-  { ssr: false }
-);
-
-const WalletConnectWrapper = ({ children }) => {
-  return <WalletConnectComponent>{children}</WalletConnectComponent>;
+// Empty component with proper behavior when not rendered
+const EmptyWalletConnectComponent = ({ children }) => {
+  // This ensures we're just passing through children
+  return <>{children}</>;
 };
+
+// Only load wallet connect on the client side
+const WalletConnectWrapper = dynamic(() => Promise.resolve(EmptyWalletConnectComponent), {
+  ssr: false, // Never render on the server
+});
 
 export default WalletConnectWrapper; 
