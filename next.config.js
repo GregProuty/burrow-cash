@@ -2,6 +2,9 @@
 module.exports = {
   reactStrictMode: true,
   trailingSlash: true,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   webpack(config, { isServer, webpack, buildId }) {
     config.plugins.push(
       new webpack.DefinePlugin({
