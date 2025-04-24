@@ -65,17 +65,35 @@ module.exports = {
       // Read the TypeScript file
       const content = fs.readFileSync(file, 'utf8');
       
-      // Remove type annotations with a simple regex replacement
-      // This is a basic approach and won't handle all cases perfectly
+      // Fix imports first - make sure we preserve named imports correctly
       let jsContent = content
-        .replace(/: [^=,);\n}]+/g, '') // Remove type annotations
-        .replace(/<[^>]*>/g, '') // Remove generic type parameters
-        .replace(/interface [^{]*{[^}]*}/gs, '') // Remove interfaces
-        .replace(/type [^=]*=[^;]*;/g, '') // Remove type definitions
-        .replace(/import [^'"]+ from/g, 'import from') // Fix imports
-        .replace(/export [^{]* {/g, 'export {') // Fix exports
-        .replace(/[^:]:[\s]*React\.ReactNode/g, '') // Remove React.ReactNode
-        .replace(/[^:]:[\s]*JSX\.Element/g, ''); // Remove JSX.Element
+        // Fix imports - first capture the import name before replacing
+        .replace(/import\s+(\w+|\{[^}]+\})\s+from\s+(['"][^'"]+['"])/g, 'import $1 from $2')
+        // Handle type-only imports
+        .replace(/import\s+type\s+[^;]+;/g, '')
+        // Remove interfaces
+        .replace(/interface\s+[^{]+\{[^}]*\}/gs, '')
+        // Remove type definitions
+        .replace(/type\s+[^=]+=\s*[^;]+;/g, '')
+        // Remove type assertions like 'as Type'
+        .replace(/\s+as\s+\w+/g, '')
+        // Remove type annotations
+        .replace(/:\s*([A-Za-z0-9_]+|\{[^}]+\}|\([^)]+\)=>\s*[A-Za-z0-9_]+)/g, '')
+        // Remove generic type parameters from angle brackets (but keep JSX tags)
+        .replace(/<([A-Za-z0-9_,\s]+)>/g, function(match) {
+          // Don't replace JSX tags (simple heuristic - if it has spaces or commas, it's likely a type)
+          return match.includes(',') || match.includes(' ') ? '' : match;
+        });
+      
+      // Special case handling for Assets/index.js - preserve the SVG JSX
+      if (file.includes('Assets/index')) {
+        // Just try to remove type annotations but keep the structure
+        jsContent = content
+          .replace(/:\s*[A-Za-z0-9_.]+/g, '')
+          .replace(/interface\s+[^{]+\{[^}]*\}/gs, '')
+          .replace(/type\s+[^=]+=\s*[^;]+;/g, '')
+          .replace(/\s+as\s+\w+/g, '');
+      }
       
       // Write the JavaScript file
       fs.writeFileSync(jsFile, jsContent);

@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "next",
     "build": "next build",
-    "vercel-build": "node vercel-build.js",
+    "vercel-build": "next build",
     "preexport": "npm run build",
     "export": "next export",
     "prestart": "npm run export",
