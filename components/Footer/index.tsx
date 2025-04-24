@@ -82,7 +82,6 @@ export const Declaration = () => {
   return (
     <NextLink href="/declaration" passHref>
       <Link
-        href="/declaration"
         target="_blank"
         underline="none"
         color={isMobile ? "#6F7188" : "#C0C4E9"}

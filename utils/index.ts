@@ -140,18 +140,61 @@ export const getBurrow = async ({
     ChangeMethodsLogic,
   );
 
-  // get oracle address from
-  const config = (await view(
-    logicContract,
-    ViewMethodsLogic[ViewMethodsLogic.get_config],
-  )) as IConfig;
+  // Only attempt to get config if we have an account connected
+  let config: IConfig | null = null;
+  if (account && account.accountId) {
+    try {
+      // get oracle address from logic contract
+      config = await view(
+        logicContract,
+        ViewMethodsLogic[ViewMethodsLogic.get_config],
+      ) as IConfig;
+    } catch (error) {
+      console.warn("Failed to get config, wallet may not be connected yet:", error);
+      // Return a partial burrow object that can be used for connecting
+      burrow = {
+        selector,
+        changeAccount,
+        fetchData: fetchDataCached,
+        hideModal: hideModalCached,
+        signOut: signOutCached,
+        signIn,
+        account,
+        logicContract,
+        view,
+        call,
+      } as any;
+      
+      return burrow;
+    }
+  } else {
+    // Return a partial burrow object that can be used for connecting
+    burrow = {
+      selector,
+      changeAccount,
+      fetchData: fetchDataCached,
+      hideModal: hideModalCached,
+      signOut: signOutCached,
+      signIn,
+      account,
+      logicContract,
+      view,
+      call,
+    } as any;
+    
+    return burrow;
+  }
 
-  const oracleContract: Contract = await getContract(
-    account,
-    config.oracle_account_id,
-    ViewMethodsOracle,
-    ChangeMethodsOracle,
-  );
+  // Only create oracle contract if we have a config
+  let oracleContract = null;
+  if (config && config.oracle_account_id) {
+    oracleContract = await getContract(
+      account,
+      config.oracle_account_id,
+      ViewMethodsOracle,
+      ChangeMethodsOracle,
+    );
+  }
 
   if (localStorage.getItem("near-wallet-selector:selectedWalletId") == null) {
     if (

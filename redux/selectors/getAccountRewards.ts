@@ -46,14 +46,20 @@ export const getGains = (
   source: "supplied" | "collateral" | "borrowed",
   withNetTvlMultiplier = false,
 ) =>
-  Object.keys(portfolio[source])
+  Object.keys(portfolio[source] || {})
     .map((id) => {
-      const asset = assets.data[id];
-      const netTvlMultiplier = asset.config.net_tvl_multiplier / 10000;
+      const asset = assets.data?.[id];
+      // If asset or asset.config is undefined, provide safe defaults
+      if (!asset || !asset.config) {
+        return [0, 0];
+      }
+      const netTvlMultiplier = (asset.config?.net_tvl_multiplier || 0) / 10000;
 
-      const { balance } = portfolio[source][id];
-      const apr = Number(portfolio[source][id].apr);
-      const balanceUSD = toUsd(balance, asset);
+      const { balance = "0" } = portfolio[source]?.[id] || {};
+      const apr = Number(portfolio[source]?.[id]?.apr || 0);
+      // Ensure balance is a string for toUsd
+      const balanceStr = String(balance);
+      const balanceUSD = toUsd(balanceStr, asset);
 
       return [balanceUSD * (withNetTvlMultiplier ? netTvlMultiplier : 1), apr];
     })
@@ -151,6 +157,17 @@ export const getAccountRewards = createSelector(
   (state: RootState) => state.app,
   getStaking,
   (assets, account, app, staking) => {
+    // Return empty structure if the config isn't loaded yet
+    if (!app.config) {
+      return {
+        brrr: null,
+        extra: {},
+        net: {},
+        sumRewards: {},
+        totalUnClaimUSD: 0
+      };
+    }
+    
     const brrrTokenId = app.config.booster_token_id;
     const { xBRRR, extraXBRRRAmount } = staking;
     const xBRRRAmount = xBRRR + extraXBRRRAmount;

@@ -86,7 +86,7 @@ export default function Disclaimer({ isOpen = false, onClose }) {
               <Typography fontSize="0.75rem">
                 I have read and understood the{" "}
                 <NextLink href="/declaration" passHref>
-                  <Link href="/declaration" target="_blank">
+                  <Link target="_blank">
                     Declaration and Disclaimers
                   </Link>
                 </NextLink>
@@ -107,9 +107,9 @@ export default function Disclaimer({ isOpen = false, onClose }) {
             label={
               <Typography fontSize="0.75rem">
                 I acknowledge and agree that the Site solely provides information about data on the{" "}
-                <Link href="https://near.org" target="_blank">
-                  NEAR blockchain
-                </Link>
+                <NextLink href="https://www.near.org" passHref>
+                  <Link target="_blank">NEAR blockchain</Link>
+                </NextLink>
                 . I accept that the Site has no operators and that no operator has custody over my
                 funds, ability or duty to transact on my behalf or power to reverse my transactions.
                 The Site affirmers do not endorse or provide any warranty with respect to any

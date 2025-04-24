@@ -36,13 +36,26 @@ const { SPECIAL_REGISTRATION_TOKEN_IDS } = getConfig() as any;
 Decimal.set({ precision: DEFAULT_PRECISION });
 
 export const getTokenContract = async (tokenContractAddress: string): Promise<Contract> => {
-  const { account } = await getBurrow();
-  return getContract(account, tokenContractAddress, ViewMethodsToken, ChangeMethodsToken);
+  try {
+    const { account } = await getBurrow();
+    if (!account) {
+      throw new Error("Account is not initialized or wallet not connected");
+    }
+    return getContract(account, tokenContractAddress, ViewMethodsToken, ChangeMethodsToken);
+  } catch (err: any) {
+    console.error(`Failed to get token contract for ${tokenContractAddress}: ${err.message}`);
+    throw err;
+  }
 };
 
 export const getMetadata = async (token_id: string): Promise<IMetadata | undefined> => {
   try {
     const { view } = await getBurrow();
+    if (!view) {
+      console.warn("View function is not available - wallet might not be connected");
+      return undefined;
+    }
+    
     const tokenContract: Contract = await getTokenContract(token_id);
 
     const metadata: IMetadata = (await view(
@@ -62,9 +75,18 @@ export const getBalance = async (
   token_id: string,
   accountId: string,
 ): Promise<number | undefined> => {
-  const { view } = await getBurrow();
-
+  if (!accountId) {
+    console.warn("AccountId is undefined, returning 0 balance");
+    return 0;
+  }
+  
   try {
+    const { view } = await getBurrow();
+    if (!view) {
+      console.warn("View function is not available - wallet might not be connected");
+      return 0;
+    }
+
     const tokenContract: Contract = await getTokenContract(token_id);
 
     const balanceInYocto: string = (await view(
@@ -76,7 +98,12 @@ export const getBalance = async (
     )) as string;
 
     const metadata = await getMetadata(token_id);
-    const balance = shrinkToken(balanceInYocto, metadata?.decimals!);
+    if (!metadata || !metadata.decimals) {
+      console.warn(`Missing metadata or decimals for token ${token_id}`);
+      return 0;
+    }
+    
+    const balance = shrinkToken(balanceInYocto, metadata.decimals);
 
     return Number(balance);
   } catch (err: any) {
@@ -85,8 +112,13 @@ export const getBalance = async (
   }
 };
 
-export const getAllMetadata = async (token_ids: string[]): Promise<IMetadata[]> => {
+export const getAllMetadata = async (token_ids?: string[]): Promise<IMetadata[]> => {
   try {
+    // Return empty array if token_ids is undefined or empty
+    if (!token_ids || token_ids.length === 0) {
+      return [];
+    }
+    
     const metadata: IMetadata[] = (
       await Promise.all(token_ids.map((token_id) => getMetadata(token_id)))
     ).filter((m): m is IMetadata => !!m);

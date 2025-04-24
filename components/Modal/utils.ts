@@ -31,36 +31,74 @@ export const actionMapTitle = {
   Repay: "Repay",
 };
 
+// Safe number conversion that handles undefined/null
+const safeNumber = (val, defaultValue = 0) => {
+  if (val === undefined || val === null) return defaultValue;
+  return Number(val);
+};
+
+// Safe decimal conversion
+const safeDecimal = (val, defaultValue = 0) => {
+  if (val === undefined || val === null) return new Decimal(defaultValue);
+  return new Decimal(val);
+};
+
 export const getModalData = (asset): UIAsset & Props & { disabled: boolean } => {
+  if (!asset) {
+    // Return default data if asset is undefined
+    return {
+      symbol: '',
+      tokenId: '',
+      action: 'Supply',
+      apy: 0,
+      available: 0,
+      available$: '0',
+      totalTitle: 'Total',
+      healthFactor: 100,
+      rates: [],
+      alerts: {},
+      disabled: true,
+      price: 0,
+      supplied: 0,
+      borrowed: 0,
+      collateral: 0,
+      canUseAsCollateral: false,
+      decimals: 18,
+      extraDecimals: 0,
+    };
+  }
+  
   const {
-    symbol,
-    action,
-    supplyApy,
-    borrowApy,
-    collateralFactor,
-    availableLiquidity,
-    price,
-    maxBorrowAmount,
-    supplied,
-    collateral,
-    borrowed,
-    available,
-    availableNEAR,
-    healthFactor,
-    amount,
-    maxWithdrawAmount,
-    isRepayFromDeposits,
-    canUseAsCollateral,
-    tokenId,
-    poolAsset,
-    decimals,
-    extraDecimals,
+    symbol = '',
+    action = 'Supply',
+    supplyApy = 0,
+    borrowApy = 0,
+    collateralFactor = 0,
+    availableLiquidity = 0,
+    price = 0,
+    maxBorrowAmount = 0,
+    supplied = 0,
+    collateral = 0,
+    borrowed = 0,
+    available = 0,
+    availableNEAR = 0,
+    healthFactor = 100,
+    amount = 0,
+    maxWithdrawAmount = 0,
+    isRepayFromDeposits = false,
+    canUseAsCollateral = false,
+    tokenId = '',
+    poolAsset = {},
+    decimals = 18,
+    extraDecimals = 0,
   } = asset;
+  
   const data: any = {
-    apy: borrowApy,
+    apy: safeNumber(borrowApy),
     alerts: {},
   };
   let disabled = false;
+  
   if (healthFactor >= 0 && healthFactor <= 105) {
     data.alerts["liquidation"] = {
       title: "Your health factor will be dangerously low and you're at risk of liquidation",
@@ -70,29 +108,30 @@ export const getModalData = (asset): UIAsset & Props & { disabled: boolean } => 
     delete data.alerts["liquidation"];
   }
 
-  const getAvailableWithdrawOrAdjust = toDecimal(Number(supplied + collateral));
+  const getAvailableWithdrawOrAdjust = toDecimal(safeNumber(supplied) + safeNumber(collateral));
   const isWrappedNear = symbol === "NEAR";
+  
   switch (action) {
     case "Supply":
-      data.apy = supplyApy;
+      data.apy = safeNumber(supplyApy);
       data.totalTitle = `Total Supplied`;
       data.rates = [
         ...(canUseAsCollateral ? [{ label: "Collateral Factor", value: collateralFactor }] : []),
       ];
-      data.available = toDecimal(available);
+      data.available = toDecimal(safeNumber(available));
       if (isWrappedNear) {
         data.available = toDecimal(
-          Number(Math.max(0, available + availableNEAR - NEAR_STORAGE_DEPOSIT)),
+          Math.max(0, safeNumber(available) + safeNumber(availableNEAR) - NEAR_STORAGE_DEPOSIT),
         );
       }
       data.alerts = {};
       break;
     case "Borrow":
       data.totalTitle = `Total Borrowed`;
-      data.available = toDecimal(Math.min(Math.max(0, maxBorrowAmount), availableLiquidity));
+      data.available = toDecimal(Math.min(Math.max(0, safeNumber(maxBorrowAmount)), safeNumber(availableLiquidity)));
       data.rates = [{ label: "Collateral Factor", value: collateralFactor }];
 
-      if (amount !== 0 && Number(amount).toFixed() === maxBorrowAmount?.toFixed()) {
+      if (safeNumber(amount) !== 0 && Number(amount).toFixed() === safeNumber(maxBorrowAmount)?.toFixed()) {
         data.alerts["maxBorrow"] = {
           title: "Due to pricing fluctuations the max borrow amount is approximate",
           severity: "warning",
@@ -101,23 +140,27 @@ export const getModalData = (asset): UIAsset & Props & { disabled: boolean } => 
       break;
     case "Withdraw":
       data.totalTitle = `Withdraw Supply Amount`;
-      data.apy = supplyApy;
+      data.apy = safeNumber(supplyApy);
       data.available = toDecimal(
-        Math.min(supplied + collateral, maxWithdrawAmount, availableLiquidity),
+        Math.min(
+          safeNumber(supplied) + safeNumber(collateral), 
+          safeNumber(maxWithdrawAmount), 
+          safeNumber(availableLiquidity)
+        ),
       );
       data.rates = [
         {
           label: "Remaining Collateral",
           value: formatWithCommas_number(
-            Math.abs(Math.min(collateral, collateral + supplied - amount)),
+            Math.abs(Math.min(safeNumber(collateral), safeNumber(collateral) + safeNumber(supplied) - safeNumber(amount))),
           ),
-          value$: Math.abs(Math.min(collateral, collateral + supplied - amount)) * price,
+          value$: Math.abs(Math.min(safeNumber(collateral), safeNumber(collateral) + safeNumber(supplied) - safeNumber(amount))) * safeNumber(price),
         },
       ];
       break;
     case "Adjust":
       data.totalTitle = `Amount designated as collateral`;
-      data.apy = supplyApy;
+      data.apy = safeNumber(supplyApy);
       data.available = getAvailableWithdrawOrAdjust;
       data.rates = [];
       break;
@@ -126,7 +169,7 @@ export const getModalData = (asset): UIAsset & Props & { disabled: boolean } => 
       let minRepay = "0";
       if (poolAsset?.supplied?.shares) {
         minRepay = shrinkToken(
-          new Decimal(poolAsset?.supplied?.balance)
+          safeDecimal(poolAsset?.supplied?.balance)
             .div(poolAsset?.supplied?.shares)
             .mul(2)
             .toFixed(0, 2),
@@ -135,24 +178,24 @@ export const getModalData = (asset): UIAsset & Props & { disabled: boolean } => 
       }
       let interestChargedIn1min = "0";
       if (borrowApy && price && borrowed) {
-        interestChargedIn1min = new Decimal(borrowApy)
+        interestChargedIn1min = safeDecimal(borrowApy)
           .div(365 * 24 * 60)
           .div(100)
           .mul(borrowed)
           .toFixed(decimals, 2);
       }
       const repayAmount = Decimal.max(
-        new Decimal(borrowed).plus(interestChargedIn1min),
+        safeDecimal(borrowed).plus(interestChargedIn1min),
         minRepay,
       ).toNumber();
       data.totalTitle = `Repay Borrow Amount`;
       data.available = toDecimal(
         isRepayFromDeposits
-          ? Math.min(maxWithdrawAmount, repayAmount)
+          ? Math.min(safeNumber(maxWithdrawAmount), repayAmount)
           : Math.min(
               isWrappedNear
-                ? Number(Math.max(0, available + availableNEAR - NEAR_STORAGE_DEPOSIT))
-                : available,
+                ? Math.max(0, safeNumber(available) + safeNumber(availableNEAR) - NEAR_STORAGE_DEPOSIT)
+                : safeNumber(available),
               repayAmount,
             ),
       );
@@ -160,14 +203,14 @@ export const getModalData = (asset): UIAsset & Props & { disabled: boolean } => 
       data.rates = [
         {
           label: "Remaining Borrow",
-          value: (borrowed - amount).toFixed(PERCENT_DIGITS),
-          value$: new Decimal(borrowed - amount).mul(price).toFixed(),
+          value: (safeNumber(borrowed) - safeNumber(amount)).toFixed(PERCENT_DIGITS),
+          value$: safeDecimal(safeNumber(borrowed) - safeNumber(amount)).mul(price).toFixed(),
         },
       ];
       if (isRepayFromDeposits) {
         data.rates.push({
           label: "Remaining Supplied Amount",
-          value: decimalMax(0, (supplied + collateral - amount).toFixed(PERCENT_DIGITS)).toFixed(
+          value: decimalMax(0, (safeNumber(supplied) + safeNumber(collateral) - safeNumber(amount)).toFixed(PERCENT_DIGITS)).toFixed(
             PERCENT_DIGITS,
           ),
         });
@@ -182,7 +225,7 @@ export const getModalData = (asset): UIAsset & Props & { disabled: boolean } => 
     action === "Withdraw" ||
     (action === "Repay" && !isRepayFromDeposits)
   ) {
-    if (new Decimal(amount || 0).gt(0) && new Decimal(expandToken(amount, asset.decimals)).lt(1)) {
+    if (safeDecimal(amount || 0).gt(0) && safeDecimal(expandToken(amount, decimals)).lt(1)) {
       data.alerts["wallet"] = {
         title:
           "The current balance is below the minimum token decimals, so that it cannot be processed by the contract.",
@@ -195,7 +238,7 @@ export const getModalData = (asset): UIAsset & Props & { disabled: boolean } => 
   return {
     ...asset,
     ...data,
-    available$: (data.available * price).toLocaleString(undefined, USD_FORMAT),
+    available$: (safeNumber(data.available) * safeNumber(price)).toLocaleString(undefined, USD_FORMAT),
     disabled,
   };
 };

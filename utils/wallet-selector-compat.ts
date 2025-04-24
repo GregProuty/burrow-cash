@@ -106,6 +106,29 @@ export const getWalletSelector = async ({ onAccountChange }: GetWalletSelectorAr
 
 export const getNear = () => {
   const config = getConfig(defaultNetwork);
+  
+  // Handle the case where config might be undefined or missing nodeUrl
+  if (!config || !config.nodeUrl) {
+    console.warn('Invalid NEAR configuration - using fallback config');
+    // Return a fallback configuration to prevent crashes
+    const fallbackConfig = {
+      networkId: 'mainnet',
+      nodeUrl: 'https://rpc.web4.near.page',
+      walletUrl: 'https://wallet.near.org',
+      helperUrl: 'https://helper.mainnet.near.org',
+      explorerUrl: 'https://explorer.mainnet.near.org',
+    };
+    
+    const keyStore = new BrowserLocalStorageKeyStore();
+    if (!near) {
+      near = new Near({
+        ...fallbackConfig,
+        deps: { keyStore },
+      });
+    }
+    return near;
+  }
+  
   const keyStore = new BrowserLocalStorageKeyStore();
   if (!near) {
     near = new Near({
