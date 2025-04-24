@@ -25,6 +25,21 @@ module.exports = {
       }),
     );
 
+    // Add additional plugins to handle WalletConnect better
+    config.plugins.push(
+      new webpack.ProvidePlugin({
+        Buffer: ['buffer', 'Buffer'],
+      }),
+      new webpack.NormalModuleReplacementPlugin(
+        /@walletconnect\/modal/,
+        require.resolve('./utils/disable-wallet-connect.js')
+      ),
+      new webpack.NormalModuleReplacementPlugin(
+        /@walletconnect\/sign-client/,
+        require.resolve('./utils/disable-wallet-connect.js')
+      )
+    );
+
     config.module.rules.push({
       test: /\.svg$/i,
       issuer: /\.[jt]sx?$/,
@@ -44,6 +59,7 @@ module.exports = {
         fs: false,
         net: false,
         tls: false,
+        buffer: require.resolve('buffer/'),
         crypto: require.resolve('crypto-browserify'),
         stream: require.resolve('stream-browserify'),
         http: require.resolve('stream-http'),
