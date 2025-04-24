@@ -6,7 +6,6 @@ import { setupHereWallet } from "@near-wallet-selector/here-wallet";
 import { setupNightly } from "@near-wallet-selector/nightly";
 import { setupMyNearWallet } from "@near-wallet-selector/my-near-wallet";
 import { setupMeteorWallet } from "@near-wallet-selector/meteor-wallet";
-import { setupWalletConnect } from "@near-wallet-selector/wallet-connect";
 import { setupNeth } from "@near-wallet-selector/neth";
 import { setupNearMobileWallet } from "@near-wallet-selector/near-mobile-wallet";
 import { setupModal } from "@near-wallet-selector/modal-ui";
@@ -53,17 +52,6 @@ let accountId: string;
 let init = false;
 let selector: WalletSelector | null = null;
 
-const walletConnect = setupWalletConnect({
-  projectId: WALLET_CONNECT_ID,
-  metadata: {
-    name: "Burrow Cash",
-    description: "Burrow with NEAR Wallet Selector",
-    url: "https://github.com/near/wallet-selector",
-    icons: ["https://avatars.githubusercontent.com/u/37784886"],
-  },
-  chainId: `near:${defaultNetwork}`,
-});
-
 const myNearWallet = setupMyNearWallet({
   walletUrl: isTestnet ? "https://testnet.mynearwallet.com" : "https://app.mynearwallet.com",
 });
@@ -78,7 +66,6 @@ export const getWalletSelector = async ({ onAccountChange }: GetWalletSelectorAr
       setupSender() as any,
       setupNearWallet(),
       setupMeteorWallet(),
-      walletConnect,
       setupHereWallet(),
       setupNightly(),
       setupNeth({
