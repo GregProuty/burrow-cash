@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const path = require('path');
+
 module.exports = {
   reactStrictMode: true,
   swcMinify: false,
@@ -29,16 +31,15 @@ module.exports = {
     config.plugins.push(
       new webpack.ProvidePlugin({
         Buffer: ['buffer', 'Buffer'],
-      }),
-      new webpack.NormalModuleReplacementPlugin(
-        /@walletconnect\/modal/,
-        require.resolve('./utils/disable-wallet-connect.js')
-      ),
-      new webpack.NormalModuleReplacementPlugin(
-        /@walletconnect\/sign-client/,
-        require.resolve('./utils/disable-wallet-connect.js')
-      )
+      })
     );
+
+    // Create aliases for WalletConnect modules to use our mocks
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@walletconnect/modal': path.resolve(__dirname, './utils/walletconnect-modal.js'),
+      '@walletconnect/sign-client': path.resolve(__dirname, './utils/walletconnect-sign-client.js'),
+    };
 
     config.module.rules.push({
       test: /\.svg$/i,
@@ -47,9 +48,24 @@ module.exports = {
     });
 
     if (isServer) {
-      config.externals = [...config.externals, 
-        '@walletconnect/modal',
-        '@walletconnect/sign-client'
+      // Add externals for server-side rendering
+      const originalExternals = [...config.externals];
+      
+      config.externals = [
+        (context, request, callback) => {
+          // Add specific packages to the externals
+          if (/^@walletconnect\//.test(request)) {
+            return callback(null, `commonjs ${request}`);
+          }
+          
+          // Process the original externals
+          if (typeof originalExternals[0] === 'function') {
+            originalExternals[0](context, request, callback);
+          } else {
+            callback();
+          }
+        },
+        ...(typeof originalExternals[0] === 'function' ? originalExternals.slice(1) : originalExternals),
       ];
     }
 
