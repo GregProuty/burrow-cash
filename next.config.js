@@ -4,6 +4,7 @@ module.exports = {
   swcMinify: false,
   experimental: {
     forceSwcTransforms: true,
+    esmExternals: 'loose',
   },
   typescript: {
     // !! WARN !!
@@ -30,8 +31,25 @@ module.exports = {
       use: ["@svgr/webpack"],
     });
 
+    if (isServer) {
+      config.externals = [...config.externals, 
+        '@walletconnect/modal',
+        '@walletconnect/sign-client'
+      ];
+    }
+
     if (!isServer) {
-      config.resolve.fallback.fs = false;
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: require.resolve('crypto-browserify'),
+        stream: require.resolve('stream-browserify'),
+        http: require.resolve('stream-http'),
+        https: require.resolve('https-browserify'),
+        os: require.resolve('os-browserify/browser'),
+      };
     }
 
     return config;
