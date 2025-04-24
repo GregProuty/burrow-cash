@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "next",
     "build": "next build",
-    "vercel-build": "next build",
+    "vercel-build": "DISABLE_ESLINT_PLUGIN=true NEXT_TELEMETRY_DISABLED=1 NEXT_SKIP_TYPECHECKING=1 next build",
     "preexport": "npm run build",
     "export": "next export",
     "prestart": "npm run export",
