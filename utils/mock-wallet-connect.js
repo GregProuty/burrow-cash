@@ -1,7 +1,8 @@
 // This is a complete mock for the @near-wallet-selector/wallet-connect module
 // It provides all the functionality expected by the NEAR Wallet Selector but without external dependencies
 
-export default function setupWalletConnect() {
+// Create a function that matches the expected setupWalletConnect export
+export const setupWalletConnect = () => {
   return {
     id: 'wallet-connect',
     type: 'hardware',
@@ -26,4 +27,7 @@ export default function setupWalletConnect() {
       };
     }
   };
-} 
+};
+
+// Also provide as default export for maximum compatibility
+export default setupWalletConnect; 

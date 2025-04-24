@@ -42,12 +42,29 @@ module.exports = {
       use: ["@svgr/webpack"],
     });
 
-    // Resolve module aliases - the key change is here
-    // Instead of trying to mock the dependencies, we directly replace the problematic module
+    // Set up aliases for problematic modules with different approaches for server/client
+    if (isServer) {
+      // For server-side, completely exclude these modules to prevent ESM errors
+      config.externals = [...config.externals];
+      
+      // Create a custom externals rule
+      config.externals.push(function(context, request, callback) {
+        // Skip these problematic modules completely on the server
+        if (/@walletconnect\/modal|@walletconnect\/sign-client/.test(request)) {
+          // Return an empty object
+          return callback(null, "commonjs {}");
+        }
+        callback();
+      });
+    }
+
+    // Resolve module aliases - updated with multiple replacement strategies
     config.resolve.alias = {
       ...config.resolve.alias,
-      // Replace the entire @near-wallet-selector/wallet-connect module with our mock
-      '@near-wallet-selector/wallet-connect': path.resolve(__dirname, './utils/mock-wallet-connect.js')
+      // Replace the wallet-connect module with our mock
+      '@near-wallet-selector/wallet-connect': path.resolve(__dirname, './utils/mock-wallet-connect.js'),
+      // Replace core with our filtered version that excludes wallet-connect
+      '@near-wallet-selector/core': path.resolve(__dirname, './utils/wallet-selector-shim.js'),
     };
 
     // For client-side builds, provide necessary polyfills
