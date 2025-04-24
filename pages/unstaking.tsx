@@ -98,12 +98,11 @@ const StakingNative = () => {
     // unstaked balance and withdraw balance
 
     const start = async () => {
-      const stakedBalance = await accountConn.viewFunction(
-        selectedValidator,
-        "get_account_staked_balance",
-        { account_id: accountId },
-        // blockQuery: {finality: "final"}
-      )
+      const stakedBalance = await accountConn.viewFunction({
+        contractId: selectedValidator,
+        methodName: "get_account_staked_balance",
+        args: { account_id: accountId }
+      })
       // console.log('aloha stakedBalance', stakedBalance)
       const myFormattedStakedBalance = nearAPI.utils.format.formatNearAmount(stakedBalance, 2)
       // console.log('aloha formattedStakedBalance', myFormattedStakedBalance)
@@ -117,20 +116,20 @@ const StakingNative = () => {
       // console.log('aloha stakedBalance', stakedBalance)
 
       // Now determine if (and how much) the user is able to withdraw from the selected validator
-      const myUnstakedBalance = await accountConn.viewFunction(
-        selectedValidator,
-        'get_account_unstaked_balance',
-        { account_id: accountId }
-      )
+      const myUnstakedBalance = await accountConn.viewFunction({
+        contractId: selectedValidator,
+        methodName: 'get_account_unstaked_balance',
+        args: { account_id: accountId }
+      })
       // console.log('aloha myUnstakedBalance', myUnstakedBalance)
       const myFormattedUnstakedBalance = nearAPI.utils.format.formatNearAmount(myUnstakedBalance, 2)
       setFormattedUnstakedBalance(myFormattedUnstakedBalance)
 
-      const myIsAvailableToWithdraw = await accountConn.viewFunction(
-        selectedValidator,
-        'is_account_unstaked_balance_available',
-        { account_id: accountId }
-      )
+      const myIsAvailableToWithdraw = await accountConn.viewFunction({
+        contractId: selectedValidator,
+        methodName: 'is_account_unstaked_balance_available',
+        args: { account_id: accountId }
+      })
       // console.log('aloha myIsAvailableToWithdraw', myIsAvailableToWithdraw)
       setIsAvailableToWithdraw(myIsAvailableToWithdraw)
     }
