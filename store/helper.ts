@@ -54,26 +54,56 @@ export const getPrices = async (): Promise<IPrices | undefined> => {
 };
 
 export const expandTokenDecimal = (
-  value: string | number | Decimal,
-  decimals: string | number,
+  value: string | number | Decimal | undefined | null,
+  decimals: string | number | undefined | null,
 ): Decimal => {
-  return new Decimal(value).mul(new Decimal(10).pow(decimals));
+  if (value === undefined || value === null || decimals === undefined || decimals === null) {
+    console.warn('expandTokenDecimal received undefined or null values', { value, decimals });
+    return new Decimal(0);
+  }
+  
+  try {
+    return new Decimal(value).mul(new Decimal(10).pow(decimals));
+  } catch (error) {
+    console.error('Error in expandTokenDecimal:', error);
+    return new Decimal(0);
+  }
 };
 
 export const expandToken = (
-  value: string | number | Decimal,
-  decimals: string | number,
+  value: string | number | Decimal | undefined | null,
+  decimals: string | number | undefined | null,
   fixed?: number,
 ): string => {
-  return expandTokenDecimal(value, decimals).toFixed(fixed);
+  if (value === undefined || value === null || decimals === undefined || decimals === null) {
+    console.warn('expandToken received undefined or null values', { value, decimals });
+    return '0';
+  }
+  
+  try {
+    return expandTokenDecimal(value, decimals).toFixed(fixed);
+  } catch (error) {
+    console.error('Error in expandToken:', error);
+    return '0';
+  }
 };
 
 export const shrinkToken = (
-  value: string | number,
-  decimals: string | number,
+  value: string | number | undefined | null,
+  decimals: string | number | undefined | null,
   fixed?: number,
 ): string => {
-  return new Decimal(value).div(new Decimal(10).pow(decimals)).toFixed(fixed);
+  if (value === undefined || value === null || decimals === undefined || decimals === null) {
+    console.warn('shrinkToken received undefined or null values', { value, decimals });
+    return '0';
+  }
+  
+  try {
+    return new Decimal(value).div(new Decimal(10).pow(decimals)).toFixed(fixed);
+  } catch (error) {
+    console.error('Error in shrinkToken:', error);
+    return '0';
+  }
 };
 
 export const getContract = async (

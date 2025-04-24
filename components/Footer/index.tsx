@@ -81,13 +81,19 @@ export const Declaration = () => {
   const isMobile = isMobileDevice();
   return (
     <NextLink href="/declaration" passHref>
-      <Link
-        target="_blank"
-        underline="none"
-        color={isMobile ? "#6F7188" : "#C0C4E9"}
+      <Typography
+        component="span"
+        sx={{
+          cursor: 'pointer',
+          color: isMobile ? "#6F7188" : "#C0C4E9",
+          textDecoration: 'none',
+          "&:hover": {
+            textDecoration: 'underline'
+          }
+        }}
       >
         Declaration and Disclaimers
-      </Link>
+      </Typography>
     </NextLink>
   );
 };

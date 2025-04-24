@@ -1,5 +1,5 @@
 import { styled } from "@mui/material/styles";
-import { Toolbar, Link, MenuItem } from "@mui/material";
+import { Toolbar, Link, MenuItem, Typography } from "@mui/material";
 import { display } from "@mui/system";
 
 export const Wrapper = styled(Toolbar)(({ theme }) => ({
@@ -43,7 +43,7 @@ export const Menu = styled("div")(({ theme }) => ({
   },
 }));
 
-export const LinkStyled = styled(Link)(({ theme }) => ({
+export const LinkStyled = styled(Typography)({
   color: "white",
   textDecoration: "none",
   fontFamily: "work-sans",
@@ -57,7 +57,7 @@ export const LinkStyled = styled(Link)(({ theme }) => ({
   ":hover": {
     opacity: "0.8",
   },
-}));
+});
 
 export const StyledMenuItem = styled(MenuItem)(({ theme }) => ({
   color: theme.custom.text,

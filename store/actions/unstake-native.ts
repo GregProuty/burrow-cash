@@ -10,9 +10,20 @@ import BN from "bn.js";
 export async function unstakeNative({ amount, validatorAddress }: { amount: string; validatorAddress: string }) {
   console.log('aloha our new unstake. amount', amount)
   console.log('aloha our new unstake. validatorAddress', validatorAddress)
-  // const { logicContract } = await getBurrow();
-
+  
+  // First, check if we have an active wallet connection
+  const { account } = await getBurrow();
+  
+  if (!account || !account.accountId) {
+    console.error('Cannot unstake: no connected wallet');
+    throw new Error('Please connect your wallet to unstake');
+  }
+  
   const withYoctos = nearAPI.utils.format.parseNearAmount(amount)?.toString() as string
+  if (!withYoctos) {
+    throw new Error('Invalid amount');
+  }
+  
   const transactions: Transaction[] = [];
 
   transactions.push({

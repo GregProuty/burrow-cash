@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useTheme, Box, Snackbar, Alert } from "@mui/material";
+import { useTheme, Box, Snackbar, Alert, Link as MuiLink } from "@mui/material";
 import { useRouter } from "next/router";
 import Link from "next/link";
 
@@ -23,8 +23,10 @@ const MenuItem = ({ item }: { item: Imenu }) => {
   const style = isSelected ? { color: "#D2FF3A" } : {};
 
   return (
-    <Link href={link}>
-      <LinkStyled sx={{ ...style }}>{title}</LinkStyled>
+    <Link href={link} passHref>
+      <MuiLink component="span" sx={{ ...style, textDecoration: 'none' }}>
+        {title}
+      </MuiLink>
     </Link>
   );
 };

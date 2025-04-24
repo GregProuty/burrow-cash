@@ -5,9 +5,6 @@ import type { AppProps } from "next/app";
 import { PersistGate } from "redux-persist/integration/react";
 import { init, ErrorBoundary } from "@sentry/react";
 import { BrowserTracing } from "@sentry/tracing";
-import posthogJs from "posthog-js";
-import { useIdle, useInterval } from "react-use";
-import { useDispatch } from "react-redux";
 import { ThemeProvider } from "@mui/material/styles";
 
 import "../styles/global.css";
@@ -15,47 +12,36 @@ import LoadingBar from "react-top-loading-bar";
 import { useRouter } from "next/router";
 import { store, persistor } from "../redux/store";
 import { FallbackError, Layout, Modal } from "../components";
-import { posthog, isPostHogEnabled } from "../utils/telemetry";
 import { useAppDispatch } from "../redux/hooks";
-import { fetchAssets } from "../redux/assetsSlice";
-import { fetchAccount } from "../redux/accountSlice";
-import { fetchConfig } from "../redux/appSlice";
 import { ToastMessage } from "../components/ToastMessage";
-import { initializeEthereum } from "../utils/blockchain";
 import createTheme from "../utils/theme";
 
-const SENTRY_ORG = process.env.NEXT_PUBLIC_SENTRY_ORG as string;
-const SENTRY_PID = process.env.NEXT_PUBLIC_SENTRY_PID as unknown as number;
-
-const integrations = [new BrowserTracing()] as Array<any>;
-
-if (isPostHogEnabled) {
-  integrations.push(new posthogJs.SentryIntegration(posthog, SENTRY_ORG, SENTRY_PID));
-}
-
+// Initialize Sentry with minimal configuration
 init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
   environment: process.env.NEXT_PUBLIC_DEFAULT_NETWORK,
-  integrations,
+  integrations: [new BrowserTracing()],
   tracesSampleRate: 0.1,
   release: "v1",
 });
 
-const IDLE_INTERVAL = 30e3;
-const REFETCH_INTERVAL = 60e3;
-
+// Simplified initialization component that doesn't depend on blockchain
 const Init = () => {
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
 
   useEffect(() => {
     const init = async () => {
       try {
-        // Just fetch assets for now to avoid errors with missing imports
-        await dispatch(fetchAssets());
-        initializeEthereum();
+        console.log('Starting app initialization...');
+        
+        // Note: We've removed blockchain-dependent initialization
+        // The following calls have been commented out as they depend on blockchain.js:
+        // await dispatch(fetchConfig());
+        // await dispatch(fetchAssets());
+        
+        console.log('App initialization complete with limited functionality');
       } catch (error) {
         console.error('Initialization error:', error);
-        // Don't throw here, just log the error to prevent app from crashing
       }
     };
 
@@ -63,6 +49,19 @@ const Init = () => {
   }, [dispatch]);
 
   return null;
+};
+
+// Safe access to ethereum provider
+export const getEthereumProvider = () => {
+  if (typeof window !== 'undefined' && window.ethereum) {
+    return window.ethereum;
+  }
+  return null;
+};
+
+// Check for ethereum availability
+export const hasEthereumProvider = () => {
+  return getEthereumProvider() !== null;
 };
 
 const MyApp = ({ Component, pageProps }: AppProps) => {

@@ -9,18 +9,18 @@ export interface BoxProps extends BaseProps {
 
 export const ContentBox = ({ children, style, className, padding }: BoxProps) => {
   return (
-    <StyledBox style={style} className={className} padding={padding}>
+    <StyledBox style={style} className={className} $padding={padding}>
       {children}
     </StyledBox>
   );
 };
 
-const StyledBox = styled.div<{ padding?: string }>`
+const StyledBox = styled.div<{ $padding?: string }>`
   position: relative;
   border-radius: 12px;
   border: 1px solid #31344d;
   background: #23253a;
-  padding: ${(p) => p.padding ?? "20px 30px"};
+  padding: ${(p) => p.$padding ?? "20px 30px"};
 
   @media (max-width: 767px) {
     padding: 20px;

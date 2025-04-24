@@ -6,10 +6,9 @@ import { setupHereWallet } from "@near-wallet-selector/here-wallet";
 import { setupNightly } from "@near-wallet-selector/nightly";
 import { setupMyNearWallet } from "@near-wallet-selector/my-near-wallet";
 import { setupMeteorWallet } from "@near-wallet-selector/meteor-wallet";
+import { setupWalletConnect } from "@near-wallet-selector/wallet-connect";
 import { setupNeth } from "@near-wallet-selector/neth";
-import { setupNearMobileWallet } from "@near-wallet-selector/near-mobile-wallet";
 import { setupModal } from "@near-wallet-selector/modal-ui";
-import { setupLedger } from "@near-wallet-selector/ledger";
 import type { WalletSelectorModal } from "@near-wallet-selector/modal-ui";
 import { Near } from "near-api-js/lib/near";
 import { Account } from "near-api-js/lib/account";
@@ -52,6 +51,17 @@ let accountId: string;
 let init = false;
 let selector: WalletSelector | null = null;
 
+const walletConnect = setupWalletConnect({
+  projectId: WALLET_CONNECT_ID,
+  metadata: {
+    name: "Burrow Cash",
+    description: "Burrow with NEAR Wallet Selector",
+    url: "https://github.com/near/wallet-selector",
+    icons: ["https://avatars.githubusercontent.com/u/37784886"],
+  },
+  chainId: `near:${defaultNetwork}`,
+});
+
 const myNearWallet = setupMyNearWallet({
   walletUrl: isTestnet ? "https://testnet.mynearwallet.com" : "https://app.mynearwallet.com",
 });
@@ -62,32 +72,25 @@ export const getWalletSelector = async ({ onAccountChange }: GetWalletSelectorAr
 
   selector = await setupWalletSelector({
     modules: [
-      myNearWallet,
-      setupSender() as any,
       setupNearWallet(),
-      setupMeteorWallet(),
+      setupSender(),
+      walletConnect,
       setupHereWallet(),
       setupNightly(),
       setupNeth({
-        bundle: false,
+        useModalCover: true,
         gas: "300000000000000",
       }),
-      setupNearMobileWallet({
-        dAppMetadata: {
-          logoUrl: "https://ref-finance-images.s3.amazonaws.com/images/burrowIcon.png",
-          name: "NEAR Wallet Selector",
-        },
-      }),
-      setupLedger(),
+      myNearWallet,
+      setupMeteorWallet(),
     ],
     network: defaultNetwork,
     debug: !!isTestnet,
-    optimizeWalletOrder: false,
   });
-  const { observable }: { observable: any } = selector.store;
-  const subscription = observable
+
+  const subscription = selector.store.observable
     .pipe(
-      map((s: any) => s.accounts),
+      map((s) => s.accounts),
       distinctUntilChanged(),
     )
     .subscribe((nextAccounts) => {
@@ -106,29 +109,6 @@ export const getWalletSelector = async ({ onAccountChange }: GetWalletSelectorAr
 
 export const getNear = () => {
   const config = getConfig(defaultNetwork);
-  
-  // Handle the case where config might be undefined or missing nodeUrl
-  if (!config || !config.nodeUrl) {
-    console.warn('Invalid NEAR configuration - using fallback config');
-    // Return a fallback configuration to prevent crashes
-    const fallbackConfig = {
-      networkId: 'mainnet',
-      nodeUrl: 'https://rpc.web4.near.page',
-      walletUrl: 'https://wallet.near.org',
-      helperUrl: 'https://helper.mainnet.near.org',
-      explorerUrl: 'https://explorer.mainnet.near.org',
-    };
-    
-    const keyStore = new BrowserLocalStorageKeyStore();
-    if (!near) {
-      near = new Near({
-        ...fallbackConfig,
-        deps: { keyStore },
-      });
-    }
-    return near;
-  }
-  
   const keyStore = new BrowserLocalStorageKeyStore();
   if (!near) {
     near = new Near({

@@ -68,89 +68,131 @@ export const getBurrow = async ({
     if (fetchData) fetchData(accountId);
   };
 
-  if (!selector) {
-    selector = await getWalletSelector({
-      onAccountChange: changeAccount,
-    });
-  }
-  const account = await getAccount(getViewAs());
-
-  if (!fetchDataCached && !!fetchData) fetchDataCached = fetchData;
-  if (!hideModalCached && !!hideModal) hideModalCached = hideModal;
-  if (!signOutCached && !!signOut)
-    signOutCached = async () => {
-      if (!selector) return;
-      const wallet = await selector.wallet();
-      await wallet.signOut().catch((err) => {
-        console.error("Failed to sign out", err);
+  try {
+    if (!selector) {
+      selector = await getWalletSelector({
+        onAccountChange: changeAccount,
       });
-      if (hideModal) hideModal();
-      signOut(); // position
-    };
-  const signIn = () => selector.signIn();
+    }
+    
+    // If selector is null, it means wallet selector initialization failed
+    if (!selector) {
+      console.warn('Wallet selector initialization failed. Some features may not work properly.');
+      // Create a minimal burrow object with fallback values
+      burrow = {
+        selector: null,
+        changeAccount,
+        fetchData: fetchData || fetchDataCached,
+        hideModal: hideModal || hideModalCached,
+        signOut: signOut || signOutCached,
+        signIn: () => { 
+          console.warn('Cannot sign in - wallet selector not initialized'); 
+          return Promise.resolve(); 
+        },
+        account: null,
+        logicContract: null,
+        view: async () => ({}),
+        call: async () => ({}),
+      } as any;
+      
+      return burrow;
+    }
+    
+    const account = await getAccount(getViewAs());
 
-  const view = async (
-    contract: Contract,
-    methodName: string,
-    args: Record<string, unknown> = {},
-    json = true,
-  ): Promise<Record<string, any> | string> => {
-    try {
-      const viewAccount = await getAccount(getViewAs());
-      return await viewAccount.viewFunction({
-        contractId: contract.contractId,
+    if (!fetchDataCached && !!fetchData) fetchDataCached = fetchData;
+    if (!hideModalCached && !!hideModal) hideModalCached = hideModal;
+    if (!signOutCached && !!signOut)
+      signOutCached = async () => {
+        if (!selector) return;
+        const wallet = await selector.wallet();
+        await wallet.signOut().catch((err) => {
+          console.error("Failed to sign out", err);
+        });
+        if (hideModal) hideModal();
+        signOut(); // position
+      };
+    const signIn = () => selector.signIn();
+
+    const view = async (
+      contract: Contract,
+      methodName: string,
+      args: Record<string, unknown> = {},
+      json = true,
+    ): Promise<Record<string, any> | string> => {
+      try {
+        const viewAccount = await getAccount(getViewAs());
+        return await viewAccount.viewFunction({
+          contractId: contract.contractId,
+          methodName,
+          args,
+          parse: (data: Uint8Array) => {
+            const result = Buffer.from(data).toString();
+            return json ? JSON.parse(result) : result;
+          }
+        });
+      } catch (err: any) {
+        console.error(
+          `view failed on ${contract.contractId} method: ${methodName}, ${JSON.stringify(args)}`,
+        );
+        throw err;
+      }
+    };
+
+    const call = async (
+      contract: Contract,
+      methodName: string,
+      args: Record<string, unknown> = {},
+      deposit = "1",
+    ) => {
+      const { contractId } = contract;
+      const gas = new BN(50000000000000);
+      const attachedDeposit = new BN(deposit);
+
+      return functionCall({
+        contractId,
         methodName,
         args,
-        parse: (data: Uint8Array) => {
-          const result = Buffer.from(data).toString();
-          return json ? JSON.parse(result) : result;
-        }
-      });
-    } catch (err: any) {
-      console.error(
-        `view failed on ${contract.contractId} method: ${methodName}, ${JSON.stringify(args)}`,
-      );
-      throw err;
-    }
-  };
+        gas,
+        attachedDeposit,
+      }).catch((e) => console.error(e));
+    };
 
-  const call = async (
-    contract: Contract,
-    methodName: string,
-    args: Record<string, unknown> = {},
-    deposit = "1",
-  ) => {
-    const { contractId } = contract;
-    const gas = new BN(50000000000000);
-    const attachedDeposit = new BN(deposit);
+    const logicContract: Contract = await getContract(
+      account,
+      LOGIC_CONTRACT_NAME,
+      ViewMethodsLogic,
+      ChangeMethodsLogic,
+    );
 
-    return functionCall({
-      contractId,
-      methodName,
-      args,
-      gas,
-      attachedDeposit,
-    }).catch((e) => console.error(e));
-  };
-
-  const logicContract: Contract = await getContract(
-    account,
-    LOGIC_CONTRACT_NAME,
-    ViewMethodsLogic,
-    ChangeMethodsLogic,
-  );
-
-  // Only attempt to get config if we have an account connected
-  let config: IConfig | null = null;
-  if (account && account.accountId) {
-    try {
-      // get oracle address from logic contract
-      config = await view(
-        logicContract,
-        ViewMethodsLogic[ViewMethodsLogic.get_config],
-      ) as IConfig;
-    } catch (error) {
-      console.warn("Failed to get config, wallet may not be connected yet:", error);
+    // Only attempt to get config if we have an account connected
+    let config: IConfig | null = null;
+    if (account && account.accountId) {
+      try {
+        // get oracle address from logic contract
+        config = await view(
+          logicContract,
+          ViewMethodsLogic[ViewMethodsLogic.get_config],
+        ) as IConfig;
+      } catch (error) {
+        console.warn("Failed to get config, wallet may not be connected yet:", error);
+        // Return a partial burrow object that can be used for connecting
+        burrow = {
+          selector,
+          changeAccount,
+          fetchData: fetchDataCached,
+          hideModal: hideModalCached,
+          signOut: signOutCached,
+          signIn,
+          account,
+          logicContract,
+          view,
+          call,
+        } as any;
+        
+        return burrow;
+      }
+    } else {
       // Return a partial burrow object that can be used for connecting
       burrow = {
         selector,
@@ -167,8 +209,27 @@ export const getBurrow = async ({
       
       return burrow;
     }
-  } else {
-    // Return a partial burrow object that can be used for connecting
+
+    // Only create oracle contract if we have a config
+    let oracleContract = null;
+    if (config && config.oracle_account_id) {
+      oracleContract = await getContract(
+        account,
+        config.oracle_account_id,
+        ViewMethodsOracle,
+        ChangeMethodsOracle,
+      );
+    }
+
+    if (localStorage.getItem("near-wallet-selector:selectedWalletId") == null) {
+      if (
+        localStorage.getItem("near_app_wallet_auth_key") != null ||
+        localStorage.getItem("null_wallet_auth_key") != null
+      ) {
+        if (signOutCached) signOutCached();
+      }
+    }
+
     burrow = {
       selector,
       changeAccount,
@@ -178,49 +239,35 @@ export const getBurrow = async ({
       signIn,
       account,
       logicContract,
+      oracleContract,
       view,
       call,
+      config,
+    } as IBurrow;
+
+    return burrow;
+  } catch (error) {
+    console.error('Error initializing Burrow:', error);
+    
+    // Create a minimal burrow object with fallback values
+    burrow = {
+      selector: null,
+      changeAccount,
+      fetchData: fetchData || fetchDataCached,
+      hideModal: hideModal || hideModalCached,
+      signOut: signOut || signOutCached,
+      signIn: () => { 
+        console.warn('Cannot sign in - Burrow initialization failed'); 
+        return Promise.resolve(); 
+      },
+      account: null,
+      logicContract: null,
+      view: async () => ({}),
+      call: async () => ({}),
     } as any;
     
     return burrow;
   }
-
-  // Only create oracle contract if we have a config
-  let oracleContract = null;
-  if (config && config.oracle_account_id) {
-    oracleContract = await getContract(
-      account,
-      config.oracle_account_id,
-      ViewMethodsOracle,
-      ChangeMethodsOracle,
-    );
-  }
-
-  if (localStorage.getItem("near-wallet-selector:selectedWalletId") == null) {
-    if (
-      localStorage.getItem("near_app_wallet_auth_key") != null ||
-      localStorage.getItem("null_wallet_auth_key") != null
-    ) {
-      if (signOutCached) signOutCached();
-    }
-  }
-
-  burrow = {
-    selector,
-    changeAccount,
-    fetchData: fetchDataCached,
-    hideModal: hideModalCached,
-    signOut: signOutCached,
-    signIn,
-    account,
-    logicContract,
-    oracleContract,
-    view,
-    call,
-    config,
-  } as IBurrow;
-
-  return burrow;
 };
 
 // Initialize contract & set global variables

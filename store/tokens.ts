@@ -197,6 +197,13 @@ export const prepareAndExecuteTokenTransactions = async (
 
 export const prepareAndExecuteTransactions = async (operations: Transaction[] = []) => {
   const { account, logicContract, view } = await getBurrow();
+  
+  // Check if account or logicContract is null/undefined
+  if (!account || !logicContract) {
+    console.error('Cannot execute transactions: account or logicContract is not available');
+    throw new Error('Please connect your wallet to perform this action');
+  }
+  
   const transactions: Transaction[] = [];
 
   const storageDepositTransaction = (deposit: number) => ({
