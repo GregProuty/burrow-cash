@@ -8,7 +8,9 @@ import { setupMyNearWallet } from "@near-wallet-selector/my-near-wallet";
 import { setupMeteorWallet } from "@near-wallet-selector/meteor-wallet";
 import { setupWalletConnect } from "@near-wallet-selector/wallet-connect";
 import { setupNeth } from "@near-wallet-selector/neth";
+import { setupNearMobileWallet } from "@near-wallet-selector/near-mobile-wallet";
 import { setupModal } from "@near-wallet-selector/modal-ui";
+import { setupLedger } from "@near-wallet-selector/ledger";
 import type { WalletSelectorModal } from "@near-wallet-selector/modal-ui";
 import { Near } from "near-api-js/lib/near";
 import { Account } from "near-api-js/lib/account";
@@ -72,25 +74,33 @@ export const getWalletSelector = async ({ onAccountChange }: GetWalletSelectorAr
 
   selector = await setupWalletSelector({
     modules: [
+      myNearWallet,
+      setupSender() as any,
       setupNearWallet(),
-      setupSender(),
+      setupMeteorWallet(),
       walletConnect,
       setupHereWallet(),
       setupNightly(),
       setupNeth({
-        useModalCover: true,
+        bundle: false,
         gas: "300000000000000",
       }),
-      myNearWallet,
-      setupMeteorWallet(),
+      setupNearMobileWallet({
+        dAppMetadata: {
+          logoUrl: "https://ref-finance-images.s3.amazonaws.com/images/burrowIcon.png",
+          name: "NEAR Wallet Selector",
+        },
+      }),
+      setupLedger(),
     ],
     network: defaultNetwork,
     debug: !!isTestnet,
+    optimizeWalletOrder: false,
   });
-
-  const subscription = selector.store.observable
+  const { observable }: { observable: any } = selector.store;
+  const subscription = observable
     .pipe(
-      map((s) => s.accounts),
+      map((s: any) => s.accounts),
       distinctUntilChanged(),
     )
     .subscribe((nextAccounts) => {
