@@ -30,7 +30,7 @@ import { defaultNetwork } from "../utils/config";
 import { Near } from "near-api-js/lib/near";
 import { Account } from "near-api-js";
 
-const nodeUrl = "https://rpc.mainnet.near.org"
+const nodeUrl = "https://near.lava.build"
 
 const StakingNative = () => {
   const [total, totalUnclaim, totalToken] = useAppSelector(getTotalBRRR);
