@@ -79,7 +79,11 @@ export const getBalance = async (
     console.warn("AccountId is undefined, returning 0 balance");
     return 0;
   }
-  
+
+  if (token_id === 'aurora') {
+    return 0;
+  }
+
   try {
     const { view } = await getBurrow();
     if (!view) {
@@ -98,7 +102,7 @@ export const getBalance = async (
     )) as string;
 
     const metadata = await getMetadata(token_id);
-    if (!metadata || !metadata.decimals) {
+    if (!metadata || metadata.decimals === undefined || metadata.decimals === null) {
       console.warn(`Missing metadata or decimals for token ${token_id}`);
       return 0;
     }

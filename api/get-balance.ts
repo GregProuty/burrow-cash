@@ -10,6 +10,9 @@ export const getTokenContract = async (tokenContractAddress: string): Promise<Co
 };
 
 const getBalance = async (tokenId: string, accountId: string): Promise<string> => {
+  if (tokenId === 'aurora') {
+    return "0";
+  }
   const { view } = await getBurrow();
 
   try {

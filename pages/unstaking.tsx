@@ -30,7 +30,7 @@ import { defaultNetwork } from "../utils/config";
 import { Near } from "near-api-js/lib/near";
 import { Account } from "near-api-js";
 
-const nodeUrl = "https://near.lava.build"
+const nodeUrl = "https://rpc.mainnet.near.org"
 
 const StakingNative = () => {
   const [total, totalUnclaim, totalToken] = useAppSelector(getTotalBRRR);
@@ -52,7 +52,7 @@ const StakingNative = () => {
   const [amountToUnstake, setAmountToUnstake] = useState("1")
   const [amountToWithdraw, setAmountToWithdraw] = useState("1")
 
-  // const [nearProvider, setNearProvider] = useState(null)
+  const [nearProvider, setNearProvider] = useState(null)
   const [nearConn, setNearConn] = useState<Near | null>(null)
   const [accountConn, setAccountConn] = useState<Account | null>(null)
   const [formattedStakedBalance, setFormattedStakedBalance] = useState<string | null>(null)
@@ -74,7 +74,7 @@ const StakingNative = () => {
       })
 
       // So we can use it later
-      // setNearProvider(provider)
+      setNearProvider(provider)
 
       const nearConn = await nearAPI.connect({
         networkId: defaultNetwork,
@@ -93,50 +93,62 @@ const StakingNative = () => {
   }, []);
 
   useEffect(() => {
-    if (!accountConn || !accountId) return
-    // when they change validators, see if there's an
-    // unstaked balance and withdraw balance
+    if (!nearProvider || !accountId) return;
 
-    const start = async () => {
-      const stakedBalance = await accountConn.viewFunction(
-        selectedValidator,
-        "get_account_staked_balance",
-        { account_id: accountId },
-        // blockQuery: {finality: "final"}
-      )
-      // console.log('aloha stakedBalance', stakedBalance)
-      const myFormattedStakedBalance = nearAPI.utils.format.formatNearAmount(stakedBalance, 2)
-      // console.log('aloha formattedStakedBalance', myFormattedStakedBalance)
-      setFormattedStakedBalance(myFormattedStakedBalance)
-      // const stakedBalance = await accountConn.viewFunction({
-      //   contractId: selectedValidator,
-      //   methodName: "get_account_staked_balance",
-      //   args: { account_id: accountId },
-      //   blockQuery: {finality: "final"}
-      // })
-      // console.log('aloha stakedBalance', stakedBalance)
-
-      // Now determine if (and how much) the user is able to withdraw from the selected validator
-      const myUnstakedBalance = await accountConn.viewFunction(
-        selectedValidator,
-        'get_account_unstaked_balance',
-        { account_id: accountId }
-      )
-      // console.log('aloha myUnstakedBalance', myUnstakedBalance)
-      const myFormattedUnstakedBalance = nearAPI.utils.format.formatNearAmount(myUnstakedBalance, 2)
-      setFormattedUnstakedBalance(myFormattedUnstakedBalance)
-
-      const myIsAvailableToWithdraw = await accountConn.viewFunction(
-        selectedValidator,
-        'is_account_unstaked_balance_available',
-        { account_id: accountId }
-      )
-      // console.log('aloha myIsAvailableToWithdraw', myIsAvailableToWithdraw)
-      setIsAvailableToWithdraw(myIsAvailableToWithdraw)
+    function encodeArgs(obj: any) {
+      const json = JSON.stringify(obj);
+      if (typeof window !== "undefined" && window.btoa) {
+        return window.btoa(unescape(encodeURIComponent(json)));
+      } else {
+        return Buffer.from(json).toString("base64");
+      }
     }
 
-    start()
-  }, [selectedValidator, accountConn]);
+    const start = async () => {
+      try {
+        const args = encodeArgs({ account_id: accountId });
+
+        // 1. Staked balance
+        const stakedResult = await nearProvider.query({
+          request_type: "call_function",
+          account_id: selectedValidator,
+          method_name: "get_account_staked_balance",
+          args_base64: args,
+          finality: "final",
+        });
+        const stakedBalance = JSON.parse(Buffer.from(stakedResult.result).toString());
+        const myFormattedStakedBalance = nearAPI.utils.format.formatNearAmount(stakedBalance, 2);
+        setFormattedStakedBalance(myFormattedStakedBalance);
+
+        // 2. Unstaked balance
+        const unstakedResult = await nearProvider.query({
+          request_type: "call_function",
+          account_id: selectedValidator,
+          method_name: "get_account_unstaked_balance",
+          args_base64: args,
+          finality: "final",
+        });
+        const myUnstakedBalance = JSON.parse(Buffer.from(unstakedResult.result).toString());
+        const myFormattedUnstakedBalance = nearAPI.utils.format.formatNearAmount(myUnstakedBalance, 2);
+        setFormattedUnstakedBalance(myFormattedUnstakedBalance);
+
+        // 3. Is available to withdraw
+        const availableResult = await nearProvider.query({
+          request_type: "call_function",
+          account_id: selectedValidator,
+          method_name: "is_account_unstaked_balance_available",
+          args_base64: args,
+          finality: "final",
+        });
+        const myIsAvailableToWithdraw = JSON.parse(Buffer.from(availableResult.result).toString());
+        setIsAvailableToWithdraw(myIsAvailableToWithdraw);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    start();
+  }, [selectedValidator, nearProvider, accountId]);
 
   const handleStake = async () => {
 
