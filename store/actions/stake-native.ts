@@ -7,14 +7,28 @@ import { Transaction } from "../wallet";
 import { prepareAndExecuteTransactions } from "../tokens";
 import * as nearAPI from 'near-api-js'
 import BN from "bn.js";
+import { executeMultipleTransactions, getLastTransactionHash } from "../wallet";
 
 export async function stakeNative({ amount, validatorAddress }: { amount: string; validatorAddress: string }) {
-  console.log('aloha top of stake native. amount', amount)
-  console.log('aloha top of stake native. validatorAddress', validatorAddress)
+  console.log('aloha top of stake native. amount', amount);
+  console.log('aloha top of stake native. validatorAddress', validatorAddress);
 
   // const { logicContract, config } = await getBurrow();
 
-  const transactions: Transaction[] = [];
+  // Parse the amount first
+  const amountInYocto = nearAPI.utils.format.parseNearAmount(amount);
+  
+  // Then use it in your transactions
+  const transactions = [{
+    receiverId: validatorAddress,
+    functionCalls: [
+      {
+        methodName: "deposit_and_stake",
+        args: {},
+        attachedDeposit: new BN(amountInYocto),
+      },
+    ],
+  }];
 
   // const duration =
   //   months === 12
@@ -28,27 +42,20 @@ export async function stakeNative({ amount, validatorAddress }: { amount: string
   //   } tokenAmount:${expandToken(amount, config.booster_decimals)}`,
   // );
 
-  const withYoctos = nearAPI.utils.format.parseNearAmount(amount)?.toString() as string
-  console.log('aloha withYoctos', withYoctos)
-
-  transactions.push({
-    receiverId: validatorAddress,
-    functionCalls: [
-      {
-        // methodName: ChangeMethodsLogic[ChangeMethodsLogic.account_stake_booster],
-        methodName: 'deposit_and_stake',
-        args: {
-          receiver_id: validatorAddress,
-          // amount: expandToken(amount, config.booster_decimals),
-          // withYoctos,
-        },
-        attachedDeposit: new BN(withYoctos, 10),
-        // attachedDeposit: withYoctos,
-      },
-    ],
-  });
-
-  console.log('deposit_and_stake transactions', transactions)
-
-  await prepareAndExecuteTransactions(transactions);
+  // Store the action type
+  localStorage.setItem('pendingAction', 'Stake');
+  
+  // Execute and get result (might be undefined)
+  const result = await executeMultipleTransactions(transactions);
+  
+  // If no result with hash, try to get the most recent transaction hash
+  if (!result || !(Array.isArray(result) ? result[0]?.transaction_outcome?.id : (result.transactionHashes || result.transaction?.hash))) {
+    const lastHash = getLastTransactionHash();
+    if (lastHash) {
+      // Create a result object if we found a hash in localStorage
+      return { transaction: { hash: lastHash } };
+    }
+  }
+  
+  return result;
 }

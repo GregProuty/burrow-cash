@@ -42,15 +42,32 @@ export const executeMultipleTransactions = async (transactions) => {
 
   try {
     const wallet = await selector.wallet();
-    await wallet.signAndSendTransactions({
+    localStorage.setItem('pendingAction', 'Transaction');
+    localStorage.setItem('pendingTransactionTime', Date.now().toString());
+    
+    const result: any = await wallet.signAndSendTransactions({
       transactions: selectorTransactions,
     });
+    
+    if (result) {
+      const txHash = Array.isArray(result) 
+        ? result[0]?.transaction_outcome?.id
+        : (result.transactionHashes?.[0] || result.transaction?.hash);
+      
+      if (txHash) {
+        localStorage.setItem('lastTransactionHash', txHash);
+        localStorage.setItem('lastTransactionTime', Date.now().toString());
+      }
+    }
+    
     if (fetchData) fetchData(account.accountId);
+    
+    return result;
   } catch (e: any) {
     if (/reject/.test(e)) {
       alert("Transaction was rejected in wallet. Please try again!");
       hideModal();
-      return;
+      return null;
     }
     if (!/No accounts available/.test(e)) {
       throw e;
@@ -60,10 +77,20 @@ export const executeMultipleTransactions = async (transactions) => {
     alert(
       "No accounts available. Your wallet may be locked. You have been signed out. Please sign in again!",
     );
-    return;
+    return null;
+  } finally {
+    if (hideModal) hideModal();
   }
+};
 
-  if (hideModal) hideModal();
+export const getLastTransactionHash = () => {
+  const hash = localStorage.getItem('lastTransactionHash');
+  const time = parseInt(localStorage.getItem('lastTransactionTime') || '0');
+  
+  if (hash && time && Date.now() - time < 30000) {
+    return hash;
+  }
+  return undefined;
 };
 
 export const isRegistered = async (account_id: string, contract: Contract): Promise<boolean> => {

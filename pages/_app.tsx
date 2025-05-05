@@ -6,6 +6,7 @@ import { PersistGate } from "redux-persist/integration/react";
 import { init, ErrorBoundary } from "@sentry/react";
 import { BrowserTracing } from "@sentry/tracing";
 import { ThemeProvider } from "@mui/material/styles";
+import { useToast } from "@chakra-ui/react";
 
 import "../styles/global.css";
 import LoadingBar from "react-top-loading-bar";
@@ -69,6 +70,8 @@ const MyApp = ({ Component, pageProps }: AppProps) => {
   const [loading, setLoading] = useState(true);
   
   const router = useRouter();
+  
+  const toast = useToast();
   
   useEffect(() => {
     // Handle route change start

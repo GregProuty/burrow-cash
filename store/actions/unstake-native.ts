@@ -6,6 +6,7 @@ import { Transaction } from "../wallet";
 import { prepareAndExecuteTransactions } from "../tokens";
 import * as nearAPI from 'near-api-js'
 import BN from "bn.js";
+import { executeMultipleTransactions, getLastTransactionHash } from "../wallet";
 
 export async function unstakeNative({ amount, validatorAddress }: { amount: string; validatorAddress: string }) {
   console.log('aloha our new unstake. amount', amount)
@@ -24,13 +25,10 @@ export async function unstakeNative({ amount, validatorAddress }: { amount: stri
     throw new Error('Invalid amount');
   }
   
-  const transactions: Transaction[] = [];
-
-  transactions.push({
+  const transactions = [{
     receiverId: validatorAddress,
     functionCalls: [
       {
-        // methodName: ChangeMethodsLogic[ChangeMethodsLogic.account_unstake_booster],
         methodName: 'unstake',
         args: {
           receiver_id: validatorAddress,
@@ -38,11 +36,25 @@ export async function unstakeNative({ amount, validatorAddress }: { amount: stri
         },
         attachedDeposit: new BN(0)
       },
-
     ],
-  });
+  }];
 
   console.log('unstake transactions', transactions)
 
-  await prepareAndExecuteTransactions(transactions);
+  // Store the action type
+  localStorage.setItem('pendingAction', 'Unstake');
+  
+  // Use executeMultipleTransactions instead of prepareAndExecuteTransactions
+  const result = await executeMultipleTransactions(transactions);
+  
+  // If no result with hash, try to get the most recent transaction hash
+  if (!result || !(Array.isArray(result) ? result[0]?.transaction_outcome?.id : (result.transactionHashes || result.transaction?.hash))) {
+    const lastHash = getLastTransactionHash();
+    if (lastHash) {
+      // Create a result object if we found a hash in localStorage
+      return { transaction: { hash: lastHash } };
+    }
+  }
+  
+  return result;
 }
