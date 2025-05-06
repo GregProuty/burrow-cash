@@ -24,176 +24,241 @@ const METHOD_TO_OPERATION: Record<string, 'stake' | 'unstake' | 'withdraw'> = {
 
 /**
  * Fetches transactions for a specific account from NEAR Lake Indexer
+ * @param onProgress Optional callback to track progress
  */
-export async function fetchNearTransactions(accountId: string, validatorAddress: string, limit = 20): Promise<StakingOperation[]> {
+export async function fetchNearTransactions(
+  accountId: string, 
+  validatorAddress: string, 
+  limit = 20,
+  onProgress?: (current: number, total: number) => void
+): Promise<StakingOperation[]> {
   try {
-    console.log(`Fetching transactions for ${accountId} with validator ${validatorAddress}`);
-    
-    // First try to get transactions from cached localStorage
+    // Get cached transactions for immediate display
     const cached = getCachedTransactions();
-    if (cached.length > 0) {
-      console.log(`Found ${cached.length} cached transactions`);
-      return cached; // Return cached transactions first for immediate display
-    }
     
-    // Use the NEAR Lake Indexer API through Pagoda's API
-    // This gives us better filtering capabilities than trying to process all transactions
-    const indexerUrl = "https://near-mainnet.api.pagoda.co/index/transactions";
-    
-    // Prepare the API request to filter transactions:
-    // 1. By account ID (either as signer or receiver)
-    // 2. By action type (looking for function calls)
-    // 3. By pool/validator contract address
-    const headers = {
-      'Content-Type': 'application/json',
-      // Pagoda provides free API keys: https://www.pagoda.co/console
-      // If you need to use an API key, uncomment the following line
-      // 'x-api-key': 'YOUR_PAGODA_API_KEY'
-    };
+    // Continue fetching from network regardless of cache state
     
     // Get validator domain for flexible matching
     const validatorDomain = validatorAddress.split('.')[0];
-    console.log(`Using validator domain for matching: ${validatorDomain}`);
     
-    // First query: transactions TO the validator
-    const validatorData = {
-      account_id: accountId,
-      receiver_id: validatorAddress,
-      limit,
-      action_type: "FUNCTION_CALL",
-      order: "desc"
-    };
-    
-    console.log("Querying indexer for transactions TO validator:", validatorAddress);
-    const validatorResponse = await fetch(indexerUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(validatorData)
-    });
-    
-    // Alternative query using NEAR Explorer's existing API for transactions
+    // Try CORS-friendly approach first - using public NEAR Explorer's API
     const explorerUrl = `https://api.nearblocks.io/v1/account/${accountId}/txns?limit=${limit}`;
-    console.log(`Using Explorer API URL as backup: ${explorerUrl}`);
     
     let transactions: any[] = [];
     
-    if (validatorResponse.ok) {
-      const data = await validatorResponse.json();
-      if (data && Array.isArray(data.transactions)) {
-        transactions = data.transactions;
-        console.log(`Found ${transactions.length} transactions via Pagoda indexer`);
-      }
-    } else {
-      console.log("Indexer API request failed or unavailable, falling back to Explorer API");
+    try {
+      // Try NEAR Explorer API first as it's more CORS-friendly
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
-      // Try NEAR Explorer API as a fallback
-      const explorerResponse = await fetch(explorerUrl);
-      if (explorerResponse.ok) {
-        const data = await explorerResponse.json();
-        if (data && Array.isArray(data.txns)) {
-          transactions = data.txns;
-          console.log(`Found ${transactions.length} transactions via Explorer API`);
+      try {
+        const explorerResponse = await fetch(explorerUrl, {
+          signal: controller.signal,
+          mode: 'cors', // Explicitly set CORS mode
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        clearTimeout(timeoutId);
+        
+        if (explorerResponse.ok) {
+          const data = await explorerResponse.json();
+          
+          if (data && data.txns && Array.isArray(data.txns)) {
+            transactions = data.txns;
+          }
         }
+      } catch (fetchError) {
+        console.error("Explorer API fetch error:", fetchError.name, fetchError.message);
+        // Don't rethrow, continue with empty transactions
+      }
+    } catch (error) {
+      console.error("Error setting up Explorer API fetch:", error);
+    }
+    
+    // Try to use imported data if available
+    if (transactions.length === 0) {
+      try {
+        const rawData = localStorage.getItem('importedTransactionData');
+        if (rawData) {
+          transactions = JSON.parse(rawData);
+          console.log("Using imported transaction data:", transactions.length, "transactions found");
+        }
+      } catch (error) {
+        console.error("Error parsing imported transaction data:", error);
       }
     }
     
     if (transactions.length === 0) {
-      console.log("No transactions found in any API");
       return cached;
     }
     
     // Process the transactions to find staking operations
     const operations: StakingOperation[] = [];
     
-    // Use NEAR RPC for transaction details
-    const provider = new nearAPI.providers.JsonRpcProvider({
-      url: "https://rpc.mainnet.near.org"
-    });
-    
     // Process all transactions
+    const total = transactions.length;
+    let processedCount = 0;
+    
+    console.log(`Processing ${transactions.length} transactions`);
+    
+    // Track transactions by their hash to group related operations
+    const txHashGroups: { [key: string]: any[] } = {};
+    
+    // First group transactions by hash to process them together
     for (const tx of transactions) {
-      // Normalize transaction data structure (different between APIs)
-      const txHash = tx.hash || tx.transaction_hash;
-      const receiverId = tx.receiver_id || tx.receiver_account_id;
-      const blockTimestamp = tx.block_timestamp || (tx.block && tx.block.timestamp);
-      const signerId = tx.signer_id || tx.signer_account_id;
-      
-      if (!txHash || !receiverId) {
-        console.log("Skipping transaction with missing data");
-        continue;
+      const txHash = tx.transaction_hash || tx.hash;
+      if (!txHashGroups[txHash]) {
+        txHashGroups[txHash] = [];
+      }
+      txHashGroups[txHash].push(tx);
+    }
+    
+    for (const [txHash, txGroup] of Object.entries(txHashGroups)) {
+      // Update progress if callback provided
+      if (onProgress) {
+        onProgress(processedCount + 1, total);
       }
       
-      console.log(`Processing transaction: ${txHash} to ${receiverId}`);
+      processedCount++;
       
-      // Check if this is related to staking pools
-      const isValidatorTx = receiverId === validatorAddress || 
-                           receiverId.includes('pool') || 
-                           receiverId.includes('stake') ||
-                           (validatorDomain && receiverId.includes(validatorDomain));
-      
-      if (isValidatorTx) {
-        console.log(`Found potential validator transaction: ${txHash}`);
+      try {
+        // Find the main action transaction (usually to the pool)
+        let mainActionTx = null;
+        let functionCallTx = null;
         
-        try {
-          // Get full transaction details from RPC
-          const txDetails = await provider.txStatus(txHash, signerId);
+        // First, find function call transactions
+        for (const tx of txGroup) {
+          // Skip non-validator related transactions
+          const receiverId = tx.receiver_account_id || tx.receiver_id;
+          if (!receiverId) continue;
           
-          if (txDetails && txDetails.transaction && txDetails.transaction.actions) {
-            for (const action of txDetails.transaction.actions) {
-              if (action.FunctionCall) {
-                const methodName = action.FunctionCall.method_name;
-                console.log(`Method name: ${methodName}`);
-                
-                // Check for known staking methods
-                if (METHOD_TO_OPERATION[methodName]) {
-                  const operation = METHOD_TO_OPERATION[methodName];
-                  console.log(`Matched operation ${operation}`);
-                  
-                  const isSuccess = txDetails.status && 
-                                  (txDetails.status.hasOwnProperty('SuccessValue') || 
-                                   txDetails.status.hasOwnProperty('SuccessReceiptId'));
-                  
-                  const stakingOp: StakingOperation = {
-                    id: txHash,
-                    txHash,
-                    operation,
-                    amount: nearAPI.utils.format.formatNearAmount(action.FunctionCall.deposit, 2),
-                    timestamp: blockTimestamp ? parseInt(blockTimestamp) / 1000000 : Date.now(),
-                    status: isSuccess ? 'success' : 'failed'
-                  };
-                  
-                  operations.push(stakingOp);
-                  break;
+          const isPoolTx = 
+            receiverId === validatorAddress || 
+            receiverId.includes('pool') || 
+            receiverId.includes('stake');
+          
+          if (isPoolTx && tx.actions && Array.isArray(tx.actions)) {
+            for (const action of tx.actions) {
+              if (action.action === "FUNCTION_CALL" && action.method) {
+                functionCallTx = tx;
+                break;
+              }
+            }
+          }
+          
+          if (functionCallTx) break;
+        }
+        
+        mainActionTx = functionCallTx || txGroup[0];
+        
+        if (!mainActionTx) continue;
+        
+        const blockTimestamp = mainActionTx.block_timestamp || 
+          (mainActionTx.receipt_block && mainActionTx.receipt_block.block_timestamp) || 
+          Date.now();
+        
+        // First determine the operation type
+        let operationType: 'stake' | 'unstake' | 'withdraw' = 'stake'; // Default
+        let amount = '0';
+        
+        // Process function calls first (unstake, withdraw)
+        if (functionCallTx && functionCallTx.actions) {
+          for (const action of functionCallTx.actions) {
+            if (action.action === "FUNCTION_CALL") {
+              // Set operation type based on method name
+              if (action.method === "unstake") {
+                operationType = 'unstake';
+              } else if (action.method === "withdraw") {
+                operationType = 'withdraw';
+              }
+              
+              // Extract amount from args if available
+              if (action.args && typeof action.args === 'string') {
+                try {
+                  const parsedArgs = JSON.parse(action.args);
+                  if (parsedArgs && parsedArgs.amount) {
+                    amount = parsedArgs.amount;
+                    console.log(`Found ${operationType} amount in args: ${amount}`);
+                  }
+                } catch (e) {
+                  // JSON parse error
                 }
               }
             }
           }
-        } catch (error) {
-          console.error('Error processing transaction', txHash, error);
         }
+        
+        // If no amount found in function call, look for deposit in the transaction group
+        if (amount === '0') {
+          // For stake operations, find the largest deposit
+          let maxDeposit = 0;
+          
+          for (const tx of txGroup) {
+            if (tx.actions && Array.isArray(tx.actions)) {
+              for (const action of tx.actions) {
+                if (action.deposit && typeof action.deposit === 'number' && action.deposit > maxDeposit) {
+                  maxDeposit = action.deposit;
+                } else if (action.deposit && typeof action.deposit === 'string') {
+                  const depositNum = parseFloat(action.deposit);
+                  if (!isNaN(depositNum) && depositNum > maxDeposit) {
+                    maxDeposit = depositNum;
+                  }
+                }
+              }
+            }
+          }
+          
+          if (maxDeposit > 0) {
+            amount = maxDeposit.toString();
+            console.log(`Using largest deposit for ${operationType}: ${amount}`);
+          }
+        }
+        
+        // Format the amount
+        const formattedAmount = formatNearAmount(amount);
+        
+        // Determine status
+        const status = 
+          (mainActionTx.outcomes && mainActionTx.outcomes.status === false) ? 
+          'failed' : 'success';
+        
+        // Create the operation record
+        const stakingOp: StakingOperation = {
+          id: txHash,
+          txHash,
+          operation: operationType,
+          amount: formattedAmount,
+          timestamp: typeof blockTimestamp === 'string' ? 
+            parseInt(blockTimestamp) / 1000000 : 
+            blockTimestamp / 1000000,
+          status
+        };
+        
+        operations.push(stakingOp);
+      } catch (error) {
+        console.error('Error processing transaction', error);
       }
     }
     
     console.log(`Found ${operations.length} staking operations`);
     
     // If we found operations, cache them
-    if (operations.length > 0) {
+    if (operations.length > 0) {      
       // Prioritize newly found operations over cached ones
       for (const op of operations) {
         cacheTransaction(op);
       }
       
-      // Return freshly cached transactions
+      // Return freshly updated transactions
       return getCachedTransactions();
     }
     
+    // If no new operations were found from the network, return the cached ones
     return cached;
   } catch (error) {
     console.error('Error fetching transactions from NEAR Indexer', error);
-    
-    // Try to use cached data
-    const cached = getCachedTransactions();
-    return cached;
+    return getCachedTransactions();
   }
 }
 
@@ -205,10 +270,9 @@ export function getCachedTransactions(): StakingOperation[] {
     const cachedData = localStorage.getItem('recentStakingTransactions');
     if (cachedData) {
       const parsed = JSON.parse(cachedData);
-      console.log('Got cached transactions:', parsed);
       
       // Remove test transaction if it exists
-      const filteredTransactions = parsed.filter(tx => tx.id !== 'test-tx-1');
+      const filteredTransactions = parsed.filter(tx => !tx.id.startsWith('test-tx'));
       
       return filteredTransactions;
     }
@@ -216,7 +280,6 @@ export function getCachedTransactions(): StakingOperation[] {
     console.error('Error retrieving cached transactions', error);
   }
   
-  console.log('No cached transactions found');
   return [];
 }
 
@@ -225,29 +288,41 @@ export function getCachedTransactions(): StakingOperation[] {
  */
 export function cacheTransaction(operation: StakingOperation): void {
   try {
-    console.log('Caching transaction:', operation);
-    
-    // Ignore test transactions
-    if (operation.id === 'test-tx-1') {
-      console.log('Ignoring test transaction');
+    // Ignore test transactions for production
+    if (operation.id.startsWith('test-tx') && process.env.NODE_ENV === 'production') {
       return;
     }
+    
+    // Ensure correct operation type (exactly one of the valid types)
+    let validOperation: 'stake' | 'unstake' | 'withdraw';
+    
+    if (operation.operation === 'unstake') {
+      validOperation = 'unstake';
+    } else if (operation.operation === 'withdraw') {
+      validOperation = 'withdraw';
+    } else {
+      validOperation = 'stake';
+    }
+    
+    // Create corrected operation object
+    const correctedOperation = {
+      ...operation,
+      operation: validOperation
+    };
     
     // Get existing cached transactions
     const existing = getCachedTransactions();
     
     // Check if transaction already exists by hash
-    if (existing.some(tx => tx.txHash === operation.txHash)) {
-      console.log('Transaction already in cache, skipping');
+    if (existing.some(tx => tx.txHash === correctedOperation.txHash)) {
       return;
     }
     
     // Add new transaction at the beginning
-    const updated = [operation, ...existing.slice(0, 19)]; // Keep max 20 transactions
+    const updated = [correctedOperation, ...existing.slice(0, 19)]; // Keep max 20 transactions
     
     // Save to localStorage
     localStorage.setItem('recentStakingTransactions', JSON.stringify(updated));
-    console.log('Updated cached transactions:', updated);
   } catch (error) {
     console.error('Error caching transaction', error);
   }
@@ -258,33 +333,45 @@ export function cacheTransaction(operation: StakingOperation): void {
  */
 export function checkAndCacheCurrentTransaction(accountId: string, validatorAddress: string): StakingOperation | null {
   try {
-    console.log('Checking for current transaction in URL or localStorage');
-    
     // Check URL for transaction hash
     const url = new URL(window.location.href);
     const txHashes = url.searchParams.get("transactionHashes");
     
     if (txHashes) {
-      console.log('Found transaction hash in URL:', txHashes);
       const hash = txHashes.split(',')[0];
       const action = localStorage.getItem('pendingAction') || 'Transaction';
       const amount = localStorage.getItem('pendingAmount') || '0';
       
-      console.log(`Found pendingAction: ${action}, pendingAmount: ${amount}`);
+      // Determine operation type from action
+      let operationType: 'stake' | 'unstake' | 'withdraw' = 'stake';
+      if (action.toLowerCase().includes('unstake')) {
+        operationType = 'unstake';
+      } else if (action.toLowerCase().includes('withdraw')) {
+        operationType = 'withdraw';
+      } else if (action.toLowerCase().includes('stake')) {
+        operationType = 'stake';
+      }
+      
+      // Format the amount nicely
+      let formattedAmount = amount;
+      try {
+        // If the amount is in yoctoNEAR (large number or numerical string), format it
+        if (amount && !amount.includes('.') && amount !== '0') {
+          formattedAmount = formatNearAmount(amount);
+        }
+      } catch (e) {
+        console.error('Error formatting amount:', e);
+      }
       
       // Create a new operation
       const operation: StakingOperation = {
         id: hash,
         txHash: hash,
-        operation: action.toLowerCase().includes('stake') ? 'stake' :
-                  action.toLowerCase().includes('unstake') ? 'unstake' :
-                  action.toLowerCase().includes('withdraw') ? 'withdraw' : 'stake',
-        amount,
+        operation: operationType,
+        amount: formattedAmount,
         timestamp: Date.now(),
         status: 'success'
       };
-      
-      console.log('Created transaction from URL params:', operation);
       
       // Cache it
       cacheTransaction(operation);
@@ -298,25 +385,39 @@ export function checkAndCacheCurrentTransaction(accountId: string, validatorAddr
     // Check for last transaction hash in localStorage
     const lastTxHash = getLastTransactionHash();
     if (lastTxHash) {
-      console.log('Found last transaction hash in localStorage:', lastTxHash);
       const action = localStorage.getItem('pendingAction') || 'Transaction';
       const amount = localStorage.getItem('pendingAmount') || '0';
       
-      console.log(`Found pendingAction: ${action}, pendingAmount: ${amount}`);
+      // Determine operation type from action
+      let operationType: 'stake' | 'unstake' | 'withdraw' = 'stake';
+      if (action.toLowerCase().includes('unstake')) {
+        operationType = 'unstake';
+      } else if (action.toLowerCase().includes('withdraw')) {
+        operationType = 'withdraw';
+      } else if (action.toLowerCase().includes('stake')) {
+        operationType = 'stake';
+      }
+      
+      // Format the amount nicely
+      let formattedAmount = amount;
+      try {
+        // If the amount is in yoctoNEAR (large number or numerical string), format it
+        if (amount && !amount.includes('.') && amount !== '0') {
+          formattedAmount = formatNearAmount(amount);
+        }
+      } catch (e) {
+        console.error('Error formatting amount:', e);
+      }
       
       // Create a new operation
       const operation: StakingOperation = {
         id: lastTxHash,
         txHash: lastTxHash,
-        operation: action.toLowerCase().includes('stake') ? 'stake' :
-                  action.toLowerCase().includes('unstake') ? 'unstake' :
-                  action.toLowerCase().includes('withdraw') ? 'withdraw' : 'stake',
-        amount,
+        operation: operationType,
+        amount: formattedAmount,
         timestamp: Date.now(),
         status: 'success'
       };
-      
-      console.log('Created transaction from localStorage:', operation);
       
       // Cache it
       cacheTransaction(operation);
@@ -324,10 +425,120 @@ export function checkAndCacheCurrentTransaction(accountId: string, validatorAddr
       return operation;
     }
     
-    console.log('No current transaction found');
     return null;
   } catch (error) {
     console.error('Error checking current transaction', error);
     return null;
+  }
+}
+
+/**
+ * Clears all cached transactions from localStorage
+ */
+export function clearCachedTransactions(): void {
+  try {
+    console.log('Clearing all cached transactions');
+    localStorage.removeItem('recentStakingTransactions');
+  } catch (error) {
+    console.error('Error clearing cached transactions', error);
+  }
+}
+
+// Helper to format amounts safely
+function formatNearAmount(rawAmount: string | number | undefined): string {
+  if (!rawAmount) return '0';
+  
+  try {
+    // Handle scientific notation (common in the API response)
+    if (typeof rawAmount === 'number' || 
+        (typeof rawAmount === 'string' && rawAmount.includes('e'))) {
+      // Convert to a regular number
+      const num = typeof rawAmount === 'string' ? parseFloat(rawAmount) : rawAmount;
+      
+      // Convert from yoctoNEAR to NEAR if it's a large number (e+18 and above)
+      if (num >= 1e18) {
+        // Scientific notation like 3.720409471898203e+21 is in yoctoNEAR
+        const nearAmount = num / 1e24;
+        
+        // Format to max 4 decimal places for readability
+        if (nearAmount > 0 && nearAmount < 0.001) {
+          return '< 0.001';
+        }
+        
+        // For regular amounts, format properly
+        return nearAmount.toFixed(4).replace(/\.?0+$/, '');
+      }
+      
+      // For smaller numbers, just format normally
+      return num.toFixed(4).replace(/\.?0+$/, '');
+    }
+    
+    // If it's already a formatted string with decimals, return it
+    if (typeof rawAmount === 'string' && rawAmount.includes('.')) {
+      const num = parseFloat(rawAmount);
+      // If it's a very small amount
+      if (num > 0 && num < 0.001) {
+        return '< 0.001';
+      }
+      // Format to max 4 decimal places
+      return num.toFixed(4).replace(/\.?0+$/, '');
+    }
+    
+    // Handle yoctoNEAR
+    if (typeof rawAmount === 'string' && rawAmount.length > 18) {
+      try {
+        // Format using NEAR API utils
+        const formatted = nearAPI.utils.format.formatNearAmount(rawAmount);
+        
+        // If amount is very small (less than 0.001), show as "< 0.001"
+        if (parseFloat(formatted) > 0 && parseFloat(formatted) < 0.001) {
+          return '< 0.001';
+        }
+        
+        // Limit to 4 decimal places for consistency
+        const num = parseFloat(formatted);
+        return num.toFixed(4).replace(/\.?0+$/, '');
+      } catch (e) {
+        console.warn('Error formatting with NEAR API:', e);
+        // Try manual conversion
+        try {
+          const parsed = BigInt(rawAmount);
+          const nearAmount = Number(parsed) / 1e24;
+          if (nearAmount > 0 && nearAmount < 0.001) {
+            return '< 0.001';
+          }
+          return nearAmount.toFixed(4).replace(/\.?0+$/, '');
+        } catch (bigIntError) {
+          console.warn('Error with BigInt conversion:', bigIntError);
+          // Last resort - try direct division
+          return (parseFloat(rawAmount) / 1e24).toFixed(4).replace(/\.?0+$/, '');
+        }
+      }
+    }
+    
+    // For other cases, attempt to format normally
+    try {
+      const num = parseFloat(rawAmount.toString());
+      if (isNaN(num)) return '0';
+      if (num > 0 && num < 0.001) return '< 0.001';
+      return num.toFixed(4).replace(/\.?0+$/, '');
+    } catch (e) {
+      console.error('Error during number formatting:', e);
+      return '0';
+    }
+  } catch (error) {
+    console.error('Error formatting NEAR amount:', error);
+    return '0';
+  }
+}
+
+// Add a method for debugging/importing transaction data
+export function importTransactionData(data: any[]): void {
+  try {
+    // Store the raw data for processing
+    localStorage.setItem('importedTransactionData', JSON.stringify(data));
+    console.log(`Imported ${data.length} transactions for debugging`);
+  } catch (error) {
+    console.error('Error importing transaction data', error);
   }
 } 

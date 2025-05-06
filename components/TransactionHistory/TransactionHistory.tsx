@@ -6,20 +6,12 @@ import * as nearAPI from 'near-api-js';
 import { 
   fetchNearTransactions, 
   getCachedTransactions, 
+  clearCachedTransactions,
   checkAndCacheCurrentTransaction,
   cacheTransaction
-} from "./near-transaction.service";
+} from './near-transaction.service';
 import CustomButton from "../CustomButton/CustomButton";
-
-// Define locally to fix import error
-interface StakingOperation {
-  id: string;
-  timestamp: number;
-  operation: 'stake' | 'unstake' | 'withdraw';
-  amount: string;
-  txHash: string;
-  status: 'success' | 'pending' | 'failed';
-}
+import { StakingOperation } from './types';
 
 interface TransactionHistoryProps {
   validatorAddress: string;
@@ -30,70 +22,158 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ validatorAddres
   const [transactions, setTransactions] = useState<StakingOperation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [retryCount, setRetryCount] = useState(0);
+  const maxRetries = 3;
+  
+  // Add pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const transactionsPerPage = 10;
 
   useEffect(() => {
-    console.log("TransactionHistory mounted with:", { accountId, validatorAddress });
-    
     if (accountId) {
       // Check if there's a transaction in the URL or localStorage that needs to be added
       const currentTx = checkAndCacheCurrentTransaction(accountId, validatorAddress);
-      console.log("Current transaction from URL/localStorage:", currentTx);
       
       // Merge with cached transactions
       const cachedTxs = getCachedTransactions();
-      console.log("Cached transactions:", cachedTxs);
       
       // Set initial transactions from cache
       if (cachedTxs.length > 0) {
-        console.log("Setting transactions from cache");
         setTransactions(cachedTxs);
       }
       
       // Then fetch from the network
       fetchTransactionHistory();
+      
+      // Set up auto-refresh timer (every 2 minutes)
+      const refreshTimer = setInterval(() => {
+        fetchTransactionHistory();
+      }, 120000);
+      
+      // Clean up the timer when unmounting
+      return () => {
+        clearInterval(refreshTimer);
+      };
     }
   }, [accountId, validatorAddress]);
+
+  // Auto-retry on network errors (up to maxRetries)
+  useEffect(() => {
+    if (fetchError && retryCount < maxRetries) {
+      const retryDelay = Math.pow(2, retryCount) * 1000; // Exponential backoff
+      console.log(`Retrying fetch (${retryCount + 1}/${maxRetries}) in ${retryDelay / 1000}s`);
+      
+      const retryTimer = setTimeout(() => {
+        console.log(`Automatic retry #${retryCount + 1}`);
+        setRetryCount(prev => prev + 1);
+        fetchTransactionHistory();
+      }, retryDelay);
+      
+      return () => clearTimeout(retryTimer);
+    }
+  }, [fetchError, retryCount]);
 
   const fetchTransactionHistory = async () => {
     if (!accountId) return;
     
     try {
-      console.log("Fetching transaction history for:", { accountId, validatorAddress });
+      // Clear any previous error state and reset progress
+      setFetchError(null);
+      setProgress({ current: 0, total: 0 });
       setIsLoading(true);
       
-      // Fetch transactions from the NEAR Explorer API
-      const fetchedTransactions = await fetchNearTransactions(accountId, validatorAddress, 20);
-      console.log("Fetched transactions:", fetchedTransactions);
-      setInitialLoad(false);
+      // First check cached transactions and display them immediately
+      const cachedTransactions = getCachedTransactions();
+      if (cachedTransactions.length > 0) {
+        setTransactions(cachedTransactions);
+      }
       
-      // If we got transactions, update the state
-      if (fetchedTransactions.length > 0) {
-        console.log("Setting fetched transactions:", fetchedTransactions);
-        setTransactions(fetchedTransactions);
-        setHasMore(fetchedTransactions.length >= 20);
-      } else if (transactions.length === 0) {
-        // If we didn't get any transactions, but need to show something
-        // Create a placeholder transaction for the first stake/unstake/withdraw
-        if (initialLoad) {
-          console.log("No transactions found, creating placeholder for first transaction");
-          // We'll only show this if the user hasn't done any transactions yet
+      // Track progress of transaction processing
+      const handleProgress = (current: number, total: number) => {
+        setProgress({ current, total });
+      };
+      
+      try {
+        // Then fetch from the network for fresh data with a timeout
+        const fetchPromise = fetchNearTransactions(
+          accountId, 
+          validatorAddress, 
+          20, 
+          handleProgress
+        );
+        
+        // Set a timeout to cancel if it takes too long
+        const timeoutPromise = new Promise<StakingOperation[]>((_, reject) => {
+          setTimeout(() => reject(new Error("Fetch timeout")), 30000); // 30 second timeout
+        });
+        
+        // Race between fetch and timeout
+        const fetchedTransactions = await Promise.race([
+          fetchPromise,
+          timeoutPromise
+        ]);
+        
+        // Reset retry count on success
+        setRetryCount(0);
+        setInitialLoad(false);
+        
+        // Update with fresh transactions if any are found
+        if (fetchedTransactions.length > 0) {
+          setTransactions(fetchedTransactions);
+        } else if (transactions.length === 0) {
+          // If we have no transactions at all
           setTransactions([]);
         }
+      } catch (fetchError) {
+        console.error("Network error during fetch:", fetchError);
+        
+        // Set error message for the user
+        if (fetchError.name === 'AbortError' || fetchError.message === 'Fetch timeout') {
+          setFetchError("Request timed out. Please try again later.");
+        } else if (fetchError.name === 'TypeError' && fetchError.message.includes('Failed to fetch')) {
+          setFetchError("Network connection issue. Please check your internet connection.");
+        } else {
+          setFetchError("Failed to fetch transaction data. Please try again later.");
+        }
+        
+        setInitialLoad(false);
       }
     } catch (error) {
-      console.error("Error fetching transaction history:", error);
+      console.error("Error in transaction history:", error);
+      setFetchError("An unexpected error occurred. Please try again later.");
       setInitialLoad(false);
     } finally {
       setIsLoading(false);
+      // Reset progress when done
+      setProgress({ current: 0, total: 0 });
     }
   };
 
-  const handleLoadMore = () => {
-    // Implement pagination when needed
-    setPage(prev => prev + 1);
-    fetchTransactionHistory();
+  // Calculate current transactions to display
+  const indexOfLastTransaction = currentPage * transactionsPerPage;
+  const indexOfFirstTransaction = indexOfLastTransaction - transactionsPerPage;
+  const currentTransactions = transactions.slice(indexOfFirstTransaction, indexOfLastTransaction);
+  const totalPages = Math.ceil(transactions.length / transactionsPerPage);
+
+  // Function to change page
+  const goToPage = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+  };
+
+  // Function to go to next page
+  const nextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  // Function to go to previous page
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
   };
 
   const handleViewTransaction = (txHash: string) => {
@@ -102,36 +182,100 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ validatorAddres
 
   const clearHistory = () => {
     console.log("Clearing transaction history");
-    localStorage.removeItem('recentStakingTransactions');
+    clearCachedTransactions();
     setTransactions([]);
   };
 
-  // Add a manual transaction for testing
   const addTestTransaction = () => {
-    const testTx: StakingOperation = {
-      id: `manual-test-${Date.now()}`,
-      txHash: '3JBVzjAJxqyxu2bSG7HKuKih3ydz5yo3rY5Fh8NDi4Zt',
-      operation: 'stake',
-      amount: '1.0',
-      timestamp: Date.now(),
-      status: 'success'
+    const testOperations: StakingOperation[] = [
+      {
+        id: 'test-tx-stake',
+        amount: '10.5',
+        operation: 'stake',
+        timestamp: Date.now(),
+        txHash: 'test-hash-stake',
+        status: 'success'
+      },
+      {
+        id: 'test-tx-unstake',
+        amount: '5.25',
+        operation: 'unstake',
+        timestamp: Date.now() - 1000,
+        txHash: 'test-hash-unstake',
+        status: 'success'
+      },
+      {
+        id: 'test-tx-withdraw',
+        amount: '3.75',
+        operation: 'withdraw',
+        timestamp: Date.now() - 2000,
+        txHash: 'test-hash-withdraw',
+        status: 'success'
+      },
+      {
+        id: 'test-tx-small-amount',
+        amount: '0.00075',
+        operation: 'stake',
+        timestamp: Date.now() - 3000,
+        txHash: 'test-hash-small',
+        status: 'success'
+      }
+    ];
+    
+    testOperations.forEach(operation => {
+      cacheTransaction(operation);
+    });
+    
+    const updated = getCachedTransactions();
+    setTransactions(updated);
+  };
+
+  const debugTransactions = () => {
+    const cachedTx = getCachedTransactions();
+    
+    // Count by type
+    const counts = {
+      stake: 0,
+      unstake: 0,
+      withdraw: 0,
+      unknown: 0
     };
-    cacheTransaction(testTx);
-    setTransactions([testTx, ...transactions]);
+    
+    cachedTx.forEach(tx => {
+      if (tx.operation === 'stake') counts.stake++;
+      else if (tx.operation === 'unstake') counts.unstake++;
+      else if (tx.operation === 'withdraw') counts.withdraw++;
+      else counts.unknown++;
+    });
+    
+    // Update UI
+    setTransactions(cachedTx);
   };
 
   return (
     <ContentBox className="mt-6">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-bold">Transaction History</h3>
+        <h3 className="text-xl font-bold">
+          Transaction History
+          {isLoading && transactions.length > 0 && progress.total > 0 && (
+            <span className="ml-2 text-sm font-normal text-blue-400">
+              (Refreshing... {progress.current}/{progress.total})
+            </span>
+          )}
+          {fetchError && (
+            <span className="ml-2 text-sm font-normal text-red-400">
+              (Offline Mode)
+            </span>
+          )}
+        </h3>
         <div className="flex gap-4">
           <CustomButton 
             onClick={fetchTransactionHistory} 
             className="px-4 py-2"
             color="info"
-            isLoading={isLoading}
+            isLoading={isLoading && transactions.length === 0}
           >
-            Refresh
+            {fetchError ? "Retry" : "Refresh"}
           </CustomButton>
           {transactions.length > 0 ? (
             <CustomButton 
@@ -152,6 +296,15 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ validatorAddres
           )}
         </div>
       </div>
+      
+      {/* Show error message if fetch failed */}
+      {fetchError && (
+        <div className="bg-red-900/20 border border-red-900/50 rounded-md p-3 mb-4">
+          <p className="text-red-300 text-sm">
+            {fetchError} Showing cached transactions only.
+          </p>
+        </div>
+      )}
       
       {isLoading && transactions.length === 0 ? (
         <div className="flex justify-center items-center h-40">Loading transaction history...</div>
@@ -182,39 +335,76 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ validatorAddres
               </tr>
             </thead>
             <tbody>
-              {transactions.map((tx) => (
+              {currentTransactions.map((tx) => (
                 <tr key={tx.id}>
-                  <td>{new Date(tx.timestamp).toLocaleString()}</td>
                   <td>
-                    <OperationBadge type={tx.operation}>
-                      {tx.operation.charAt(0).toUpperCase() + tx.operation.slice(1)}
-                    </OperationBadge>
-                  </td>
-                  <td>{tx.amount} NEAR</td>
-                  <td>
-                    <StatusBadge status={tx.status}>
-                      {tx.status.charAt(0).toUpperCase() + tx.status.slice(1)}
-                    </StatusBadge>
+                    {new Date(tx.timestamp).toLocaleString()}
                   </td>
                   <td>
-                    <ViewButton onClick={() => handleViewTransaction(tx.txHash)}>
+                    <OperationBadge operation={tx.operation} />
+                  </td>
+                  <td>
+                    {tx.amount === '0' 
+                      ? '< 0.001' 
+                      : tx.amount} NEAR
+                  </td>
+                  <td>
+                    <StatusBadge status={tx.status} />
+                  </td>
+                  <td>
+                    <a
+                      href={`https://explorer.near.org/transactions/${tx.txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: '#2196f3',
+                        textDecoration: 'none',
+                      }}
+                    >
                       View
-                    </ViewButton>
+                    </a>
                   </td>
                 </tr>
               ))}
             </tbody>
           </StyledTable>
           
-          {hasMore && (
-            <div className="flex justify-center mt-4">
-              <CustomButton 
-                onClick={handleLoadMore} 
-                className="w-1/3"
-                color="info"
-                isLoading={isLoading}
+          {/* Pagination Controls */}
+          {transactions.length > transactionsPerPage && (
+            <div className="flex justify-center items-center gap-2 mt-4">
+              <CustomButton
+                onClick={prevPage}
+                disabled={currentPage === 1}
+                className="px-3 py-1"
+                color="secondary"
               >
-                Load More
+                &laquo; Prev
+              </CustomButton>
+              
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <CustomButton
+                    key={page}
+                    onClick={() => goToPage(page)}
+                    className={`w-8 h-8 p-0 flex items-center justify-center ${
+                      currentPage === page 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-800 text-gray-300'
+                    }`}
+                    color={currentPage === page ? 'info' : 'secondary'}
+                  >
+                    {page}
+                  </CustomButton>
+                ))}
+              </div>
+              
+              <CustomButton
+                onClick={nextPage}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1"
+                color="secondary"
+              >
+                Next &raquo;
               </CustomButton>
             </div>
           )}
@@ -232,7 +422,6 @@ const StyledTable = styled.table`
   
   th, td {
     padding: 12px 16px;
-    text-align: left;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   }
   
@@ -240,6 +429,7 @@ const StyledTable = styled.table`
     font-weight: 600;
     color: rgba(255, 255, 255, 0.7);
     font-size: 0.875rem;
+    text-align: left;
   }
   
   td {
@@ -249,61 +439,143 @@ const StyledTable = styled.table`
   tbody tr:hover {
     background-color: rgba(255, 255, 255, 0.05);
   }
-`;
-
-const OperationBadge = styled.span<{ type: string }>`
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  background-color: ${props => {
-    switch (props.type) {
-      case 'stake': return 'rgba(56, 142, 60, 0.2)';
-      case 'unstake': return 'rgba(244, 67, 54, 0.2)';
-      case 'withdraw': return 'rgba(33, 150, 243, 0.2)';
-      default: return 'rgba(255, 255, 255, 0.1)';
-    }
-  }};
-  color: ${props => {
-    switch (props.type) {
-      case 'stake': return '#4caf50';
-      case 'unstake': return '#f44336';
-      case 'withdraw': return '#2196f3';
-      default: return '#ffffff';
-    }
-  }};
-`;
-
-const StatusBadge = styled.span<{ status: string }>`
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  background-color: ${props => 
-    props.status === 'success' ? 'rgba(76, 175, 80, 0.2)' : 
-    props.status === 'failed' ? 'rgba(244, 67, 54, 0.2)' : 
-    'rgba(255, 152, 0, 0.2)'
-  };
-  color: ${props => 
-    props.status === 'success' ? '#4caf50' : 
-    props.status === 'failed' ? '#f44336' : 
-    '#ff9800'
-  };
-`;
-
-const ViewButton = styled.button`
-  background-color: rgba(33, 150, 243, 0.1);
-  color: #2196f3;
-  border: none;
-  border-radius: 4px;
-  padding: 4px 8px;
-  font-size: 0.75rem;
-  cursor: pointer;
-  transition: all 0.2s;
   
-  &:hover {
-    background-color: rgba(33, 150, 243, 0.2);
+  /* Column-specific styling */
+  th:nth-child(1), td:nth-child(1) { /* Time column */
+    text-align: left;
+    width: 25%;
+  }
+  
+  th:nth-child(2), td:nth-child(2) { /* Operation column */
+    text-align: center;
+    width: 15%;
+  }
+  
+  th:nth-child(3), td:nth-child(3) { /* Amount column */
+    text-align: right;
+    width: 20%;
+  }
+  
+  th:nth-child(4), td:nth-child(4) { /* Status column */
+    text-align: center;
+    width: 15%;
+  }
+  
+  th:nth-child(5), td:nth-child(5) { /* Transaction column */
+    text-align: center;
+    width: 15%;
   }
 `;
+
+interface OperationBadgeProps {
+  operation: string;
+}
+
+const OperationBadge = ({ operation }: OperationBadgeProps) => {
+  // Strictly validate the operation type
+  const validOperation = 
+    operation === 'unstake' ? 'unstake' :
+    operation === 'withdraw' ? 'withdraw' : 
+    'stake'; // default
+
+  const getBackgroundColor = () => {
+    switch (validOperation) {
+      case 'stake':
+        return 'rgba(76, 175, 80, 0.3)'; // Green
+      case 'unstake':
+        return 'rgba(255, 152, 0, 0.3)'; // Orange
+      case 'withdraw':
+        return 'rgba(33, 150, 243, 0.3)'; // Blue
+      default:
+        return 'rgba(76, 175, 80, 0.3)'; // Default green
+    }
+  };
+
+  const getTextColor = () => {
+    switch (validOperation) {
+      case 'stake':
+        return '#388e3c'; // Dark green
+      case 'unstake':
+        return '#ef6c00'; // Dark orange
+      case 'withdraw':
+        return '#1565c0'; // Dark blue
+      default:
+        return '#388e3c'; // Default dark green
+    }
+  };
+
+  const getLabel = () => {
+    switch (validOperation) {
+      case 'stake':
+        return 'Stake';
+      case 'unstake':
+        return 'Unstake';
+      case 'withdraw':
+        return 'Withdraw';
+      default:
+        return 'Stake';
+    }
+  };
+
+  return (
+    <div
+      style={{
+        backgroundColor: getBackgroundColor(),
+        color: getTextColor(),
+        padding: '4px 8px',
+        borderRadius: '4px',
+        display: 'inline-block',
+        fontSize: '0.85rem',
+        fontWeight: 600,
+        textTransform: 'capitalize',
+      }}
+    >
+      {getLabel()}
+    </div>
+  );
+};
+
+interface StatusBadgeProps {
+  status: string;
+}
+
+const StatusBadge = ({ status }: StatusBadgeProps) => {
+  // Normalize the status to one of our allowed values
+  const normalizedStatus = status === 'failed' ? 'failed' : 'success';
+  
+  const getBackgroundColor = () => {
+    return normalizedStatus === 'success' 
+      ? 'rgba(76, 175, 80, 0.2)' // Green for success
+      : 'rgba(244, 67, 54, 0.2)'; // Red for failed
+  };
+
+  const getTextColor = () => {
+    return normalizedStatus === 'success' 
+      ? '#388e3c' // Dark green for success
+      : '#d32f2f'; // Dark red for failed
+  };
+
+  const getLabel = () => {
+    return normalizedStatus === 'success' 
+      ? 'Success' 
+      : 'Failed';
+  };
+
+  return (
+    <div
+      style={{
+        backgroundColor: getBackgroundColor(),
+        color: getTextColor(),
+        padding: '4px 8px',
+        borderRadius: '4px',
+        display: 'inline-block',
+        fontSize: '0.85rem',
+        fontWeight: 600,
+      }}
+    >
+      {getLabel()}
+    </div>
+  );
+};
 
 export default TransactionHistory; 
