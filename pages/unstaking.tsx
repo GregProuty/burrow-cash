@@ -31,6 +31,8 @@ import { Near } from "near-api-js/lib/near";
 import { Account } from "near-api-js";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import TransactionHistory from "../components/TransactionHistory/TransactionHistory";
+import { cacheTransaction } from "../components/TransactionHistory/near-transaction.service";
 
 const nodeUrl = "https://rpc.mainnet.near.org"
 
@@ -196,6 +198,44 @@ const StakingNative = () => {
           </a>
         </div>
       );
+      
+      // Add to transaction history immediately
+      if (type === 'success') {
+        console.log('Adding transaction to history:', { action, txHash });
+        
+        // Determine operation type
+        let operationType: 'stake' | 'unstake' | 'withdraw';
+        
+        if (action.toLowerCase().includes('stake')) {
+          operationType = 'stake';
+        } else if (action.toLowerCase().includes('unstake')) {
+          operationType = 'unstake';
+        } else if (action.toLowerCase().includes('withdraw')) {
+          operationType = 'withdraw';
+        } else {
+          operationType = 'stake'; // Default
+        }
+        
+        // Determine amount
+        let amount = '0';
+        if (operationType === 'stake') {
+          amount = amountToStake;
+        } else if (operationType === 'unstake') {
+          amount = amountToUnstake;
+        } else if (operationType === 'withdraw') {
+          amount = amountToWithdraw;
+        }
+        
+        const operation = {
+          id: txHash,
+          txHash,
+          operation: operationType,
+          amount,
+          timestamp: Date.now(),
+          status: 'success' as const
+        };
+        cacheTransaction(operation);
+      }
     } else {
       toast[type](type === 'success' 
         ? `${action} successful! Your transaction was successful.`
@@ -276,6 +316,10 @@ const StakingNative = () => {
 
   const handleStake = async () => {
     try {
+      // Store the amount for transaction history
+      localStorage.setItem('pendingAmount', amountToStake);
+      localStorage.setItem('pendingAction', 'Stake');
+      
       const txResult = await stakeNative({
         amount: amountToStake,
         validatorAddress: selectedValidator,
@@ -304,6 +348,10 @@ const StakingNative = () => {
     }
 
     try {
+      // Store the amount for transaction history
+      localStorage.setItem('pendingAmount', amountToUnstake);
+      localStorage.setItem('pendingAction', 'Unstake');
+      
       const txResult = await unstakeNative({
         amount: amountToUnstake,
         validatorAddress: selectedValidator,
@@ -327,6 +375,10 @@ const StakingNative = () => {
 
   const handleWithdraw = async () => {
     try {
+      // Store the amount for transaction history
+      localStorage.setItem('pendingAmount', amountToWithdraw);
+      localStorage.setItem('pendingAction', 'Withdraw');
+      
       const txResult = await withdrawNative({
         amount: amountToWithdraw,
         validatorAddress: selectedValidator,
@@ -531,6 +583,8 @@ const StakingNative = () => {
             {/* </StakingBox> */}
           </div>
         </div>
+
+        <TransactionHistory validatorAddress={selectedValidator} />
 
         <ModalStaking
           isOpen={modal?.name === "staking"}
