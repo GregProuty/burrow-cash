@@ -452,6 +452,7 @@ const StakingNative = () => {
             <option value="here.poolv1.near">here.poolv1.near</option>
             <option value="rekt.poolv1.near">rekt.poolv1.near</option>
             <option value="kiln-1.poolv1.near">kiln-1.poolv1.near</option>
+            <option value="epic.poolv1.near">epic.poolv1.near</option>
           </select>
         </div>
         <div>
