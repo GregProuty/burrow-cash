@@ -23,6 +23,66 @@ const METHOD_TO_OPERATION: Record<string, 'stake' | 'unstake' | 'withdraw'> = {
 };
 
 /**
+ * Helper to identify operation type from transaction logs
+ */
+function identifyOperationFromLogs(logs: string[]): 'stake' | 'unstake' | 'withdraw' | null {
+  if (!logs || !Array.isArray(logs) || logs.length === 0) return null;
+  
+  for (const log of logs) {
+    const logLower = log.toLowerCase();
+    
+    // Check for staking-related keywords in logs
+    if (logLower.includes('stake') && !logLower.includes('unstake')) {
+      return 'stake';
+    } 
+    // Check for unstaking-related keywords in logs
+    else if (logLower.includes('unstake')) {
+      return 'unstake';
+    } 
+    // Check for withdrawal-related keywords in logs
+    else if (logLower.includes('withdraw')) {
+      return 'withdraw';
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Identify operation type from transaction method and logs
+ */
+export function identifyOperationType(
+  methodName: string | null, 
+  logs: string[] = [], 
+  action: string | null = null
+): 'stake' | 'unstake' | 'withdraw' {
+  // First try to identify from method name
+  if (methodName && METHOD_TO_OPERATION[methodName]) {
+    return METHOD_TO_OPERATION[methodName];
+  }
+  
+  // Then try to identify from logs
+  const logBasedType = identifyOperationFromLogs(logs);
+  if (logBasedType) {
+    return logBasedType;
+  }
+  
+  // Finally, fallback to action string if provided
+  if (action) {
+    if (action.toLowerCase().includes('unstake')) {
+      return 'unstake';
+    } else if (action.toLowerCase().includes('withdraw')) {
+      return 'withdraw';
+    } else if (action.toLowerCase().includes('stake')) {
+      return 'stake';
+    }
+  }
+  
+  // Default to stake as fallback
+  return 'stake';
+}
+
+/**
  * Fetches transactions for a specific account from NEAR Lake Indexer
  * @param onProgress Optional callback to track progress
  */
@@ -59,6 +119,7 @@ export async function fetchNearTransactions(
             'Accept': 'application/json'
           }
         });
+        console.log("Explorer response:", explorerResponse);
         clearTimeout(timeoutId);
         
         if (explorerResponse.ok) {
@@ -161,17 +222,20 @@ export async function fetchNearTransactions(
         // First determine the operation type
         let operationType: 'stake' | 'unstake' | 'withdraw' = 'stake'; // Default
         let amount = '0';
+        let logs: string[] = [];
+        
+        // Extract logs from the transaction if available
+        if (mainActionTx.outcomes && mainActionTx.outcomes.logs && Array.isArray(mainActionTx.outcomes.logs)) {
+          logs = mainActionTx.outcomes.logs;
+        }
         
         // Process function calls first (unstake, withdraw)
+        let methodName = null;
         if (functionCallTx && functionCallTx.actions) {
           for (const action of functionCallTx.actions) {
             if (action.action === "FUNCTION_CALL") {
-              // Set operation type based on method name
-              if (action.method === "unstake") {
-                operationType = 'unstake';
-              } else if (action.method === "withdraw") {
-                operationType = 'withdraw';
-              }
+              // Get method name for operation type determination
+              methodName = action.method;
               
               // Extract amount from args if available
               if (action.args && typeof action.args === 'string') {
@@ -179,7 +243,7 @@ export async function fetchNearTransactions(
                   const parsedArgs = JSON.parse(action.args);
                   if (parsedArgs && parsedArgs.amount) {
                     amount = parsedArgs.amount;
-                    console.log(`Found ${operationType} amount in args: ${amount}`);
+                    console.log(`Found amount in args: ${amount}`);
                   }
                 } catch (e) {
                   // JSON parse error
@@ -188,6 +252,9 @@ export async function fetchNearTransactions(
             }
           }
         }
+        
+        // Determine operation type based on method name and logs
+        operationType = identifyOperationType(methodName, logs);
         
         // If no amount found in function call, look for deposit in the transaction group
         if (amount === '0') {
@@ -342,20 +409,81 @@ export function checkAndCacheCurrentTransaction(accountId: string, validatorAddr
       const action = localStorage.getItem('pendingAction') || 'Transaction';
       const amount = localStorage.getItem('pendingAmount') || '0';
       
-      // Determine operation type from action
-      let operationType: 'stake' | 'unstake' | 'withdraw' = 'stake';
-      if (action.toLowerCase().includes('unstake')) {
-        operationType = 'unstake';
-      } else if (action.toLowerCase().includes('withdraw')) {
-        operationType = 'withdraw';
-      } else if (action.toLowerCase().includes('stake')) {
-        operationType = 'stake';
-      }
+      // Fetch transaction details from NEAR Explorer API
+      const exploreTransaction = async () => {
+        try {
+          const response = await fetch(`https://api.nearblocks.io/v1/txns/${hash}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data.txns && data.txns[0]) {
+              const txn = data.txns[0];
+              
+              // Extract method name and logs if available
+              let methodName = null;
+              let logs: string[] = [];
+              
+              // Try to extract method name from actions
+              if (txn.actions && Array.isArray(txn.actions)) {
+                for (const action of txn.actions) {
+                  if (action.action === "FUNCTION_CALL" && action.method) {
+                    methodName = action.method;
+                    break;
+                  }
+                }
+              }
+              
+              // Try to extract logs from outcomes
+              if (txn.outcomes && txn.outcomes.logs && Array.isArray(txn.outcomes.logs)) {
+                logs = txn.outcomes.logs;
+              }
+              
+              // Determine operation type using method and logs
+              const operationType = identifyOperationType(methodName, logs, action);
+              
+              // Format the amount nicely
+              let formattedAmount = amount;
+              try {
+                if (amount && !amount.includes('.') && amount !== '0') {
+                  formattedAmount = formatNearAmount(amount);
+                }
+              } catch (e) {
+                console.error('Error formatting amount:', e);
+              }
+              
+              // Create a new operation
+              const operation: StakingOperation = {
+                id: hash,
+                txHash: hash,
+                operation: operationType,
+                amount: formattedAmount,
+                timestamp: Date.now(),
+                status: 'success'
+              };
+              
+              // Cache it
+              cacheTransaction(operation);
+              
+              // Clean URL
+              window.history.replaceState({}, document.title, window.location.pathname);
+              
+              return operation;
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching transaction details:', error);
+        }
+        return null;
+      };
+      
+      // Try to explore the transaction, but don't wait for it
+      exploreTransaction().catch(console.error);
+      
+      // Meanwhile, create a basic operation with best guess from action
+      let operationType: 'stake' | 'unstake' | 'withdraw' = identifyOperationType(null, [], action);
       
       // Format the amount nicely
       let formattedAmount = amount;
       try {
-        // If the amount is in yoctoNEAR (large number or numerical string), format it
         if (amount && !amount.includes('.') && amount !== '0') {
           formattedAmount = formatNearAmount(amount);
         }
@@ -389,14 +517,7 @@ export function checkAndCacheCurrentTransaction(accountId: string, validatorAddr
       const amount = localStorage.getItem('pendingAmount') || '0';
       
       // Determine operation type from action
-      let operationType: 'stake' | 'unstake' | 'withdraw' = 'stake';
-      if (action.toLowerCase().includes('unstake')) {
-        operationType = 'unstake';
-      } else if (action.toLowerCase().includes('withdraw')) {
-        operationType = 'withdraw';
-      } else if (action.toLowerCase().includes('stake')) {
-        operationType = 'stake';
-      }
+      let operationType = identifyOperationType(null, [], action);
       
       // Format the amount nicely
       let formattedAmount = amount;

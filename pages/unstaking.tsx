@@ -32,7 +32,7 @@ import { Account } from "near-api-js";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import TransactionHistory from "../components/TransactionHistory/TransactionHistory";
-import { cacheTransaction } from "../components/TransactionHistory/near-transaction.service";
+import { cacheTransaction, identifyOperationType } from "../components/TransactionHistory/near-transaction.service";
 
 const nodeUrl = "https://rpc.mainnet.near.org"
 
@@ -203,18 +203,8 @@ const StakingNative = () => {
       if (type === 'success') {
         console.log('Adding transaction to history:', { action, txHash });
         
-        // Determine operation type
-        let operationType: 'stake' | 'unstake' | 'withdraw';
-        
-        if (action.toLowerCase().includes('stake')) {
-          operationType = 'stake';
-        } else if (action.toLowerCase().includes('unstake')) {
-          operationType = 'unstake';
-        } else if (action.toLowerCase().includes('withdraw')) {
-          operationType = 'withdraw';
-        } else {
-          operationType = 'stake'; // Default
-        }
+        // Determine operation type - now using the imported function
+        let operationType = identifyOperationType(null, [], action);
         
         // Determine amount
         let amount = '0';
