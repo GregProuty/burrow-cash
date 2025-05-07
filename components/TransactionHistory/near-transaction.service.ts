@@ -31,15 +31,13 @@ function identifyOperationFromLogs(logs: string[]): 'stake' | 'unstake' | 'withd
   for (const log of logs) {
     const logLower = log.toLowerCase();
     
-    // Check for staking-related keywords in logs
+    // Only match exact staking-related keywords
     if (logLower.includes('stake') && !logLower.includes('unstake')) {
       return 'stake';
     } 
-    // Check for unstaking-related keywords in logs
     else if (logLower.includes('unstake')) {
       return 'unstake';
     } 
-    // Check for withdrawal-related keywords in logs
     else if (logLower.includes('withdraw')) {
       return 'withdraw';
     }
@@ -55,7 +53,7 @@ export function identifyOperationType(
   methodName: string | null, 
   logs: string[] = [], 
   action: string | null = null
-): 'stake' | 'unstake' | 'withdraw' {
+): 'stake' | 'unstake' | 'withdraw' | null {
   // First try to identify from method name
   if (methodName && METHOD_TO_OPERATION[methodName]) {
     return METHOD_TO_OPERATION[methodName];
@@ -69,17 +67,18 @@ export function identifyOperationType(
   
   // Finally, fallback to action string if provided
   if (action) {
-    if (action.toLowerCase().includes('unstake')) {
+    const actionLower = action.toLowerCase();
+    if (actionLower.includes('unstake')) {
       return 'unstake';
-    } else if (action.toLowerCase().includes('withdraw')) {
+    } else if (actionLower.includes('withdraw')) {
       return 'withdraw';
-    } else if (action.toLowerCase().includes('stake')) {
+    } else if (actionLower.includes('stake')) {
       return 'stake';
     }
   }
   
-  // Default to stake as fallback
-  return 'stake';
+  // Return null for any other type of transaction
+  return null;
 }
 
 /**
@@ -360,6 +359,11 @@ export function cacheTransaction(operation: StakingOperation): void {
       return;
     }
     
+    // Skip null operations or non-staking operations
+    if (!operation.operation) {
+      return;
+    }
+    
     // Ensure correct operation type (exactly one of the valid types)
     let validOperation: 'stake' | 'unstake' | 'withdraw';
     
@@ -367,8 +371,11 @@ export function cacheTransaction(operation: StakingOperation): void {
       validOperation = 'unstake';
     } else if (operation.operation === 'withdraw') {
       validOperation = 'withdraw';
-    } else {
+    } else if (operation.operation === 'stake') {
       validOperation = 'stake';
+    } else {
+      // Skip any other operation types
+      return;
     }
     
     // Create corrected operation object
