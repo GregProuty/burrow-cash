@@ -49,7 +49,6 @@ async function makeRateLimitedRequest(url: string, options: RequestInit): Promis
   const timeSinceLast429 = now - last429Time;
   if (timeSinceLast429 < COOLDOWN_PERIOD) {
     const waitTime = COOLDOWN_PERIOD - timeSinceLast429;
-    console.log(`In cooldown period, waiting ${waitTime}ms`);
     await new Promise(resolve => setTimeout(resolve, waitTime));
   }
   
@@ -70,17 +69,14 @@ async function makeRateLimitedRequest(url: string, options: RequestInit): Promis
       if (response.status === 429) {
         last429Time = Date.now();
         const retryDelay = RETRY_DELAYS[attempt] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
-        console.log(`Rate limited, retrying in ${retryDelay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
         await new Promise(resolve => setTimeout(resolve, retryDelay));
         continue;
       }
       
       return response;
     } catch (error) {
-      console.error('Request error:', error);
       if (attempt === MAX_RETRIES - 1) throw error;
       const retryDelay = RETRY_DELAYS[attempt] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
-      console.log(`Request failed, retrying in ${retryDelay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
       await new Promise(resolve => setTimeout(resolve, retryDelay));
     }
   }
@@ -191,18 +187,16 @@ export async function fetchNearTransactions(
         
         if (explorerResponse.ok) {
           const data = await explorerResponse.json();
-          console.log('Response data:', data);
           
           if (data && data.txns && Array.isArray(data.txns)) {
             transactions = data.txns;
           }
         }
       } catch (fetchError) {
-        console.error("Explorer API fetch error:", fetchError.name, fetchError.message);
         // Don't rethrow, continue with empty transactions
       }
     } catch (error) {
-      console.error("Error setting up Explorer API fetch:", error);
+      // Continue with empty transactions
     }
     
     // Try to use imported data if available
@@ -211,7 +205,6 @@ export async function fetchNearTransactions(
         const rawData = localStorage.getItem('importedTransactionData');
         if (rawData) {
           transactions = JSON.parse(rawData);
-          console.log("Using imported transaction data:", transactions.length, "transactions found");
         }
       } catch (error) {
         console.error("Error parsing imported transaction data:", error);
@@ -228,8 +221,6 @@ export async function fetchNearTransactions(
     // Process all transactions
     const total = transactions.length;
     let processedCount = 0;
-    
-    console.log(`Processing ${transactions.length} transactions`);
     
     // Track transactions by their hash to group related operations
     const txHashGroups: { [key: string]: any[] } = {};
@@ -311,7 +302,6 @@ export async function fetchNearTransactions(
                   const parsedArgs = JSON.parse(action.args);
                   if (parsedArgs && parsedArgs.amount) {
                     amount = parsedArgs.amount;
-                    console.log(`Found amount in args: ${amount}`);
                   }
                 } catch (e) {
                   // JSON parse error
@@ -346,7 +336,6 @@ export async function fetchNearTransactions(
           
           if (maxDeposit > 0) {
             amount = maxDeposit.toString();
-            console.log(`Using largest deposit for ${operationType}: ${amount}`);
           }
         }
         
