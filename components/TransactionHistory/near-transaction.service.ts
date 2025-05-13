@@ -44,10 +44,6 @@ let last429Time = 0;
  * Helper function to handle rate limiting
  */
 async function makeRateLimitedRequest(url: string, options: RequestInit): Promise<Response> {
-  // Debug log the request
-  console.log('Making request to:', url);
-  console.log('Request headers:', options.headers);
-  
   // Check if we're in cooldown period after a 429
   const now = Date.now();
   const timeSinceLast429 = now - last429Time;
@@ -69,10 +65,6 @@ async function makeRateLimitedRequest(url: string, options: RequestInit): Promis
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
       const response = await fetch(url, options);
-      
-      // Debug log the response
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
       
       // If we get a 429, wait and retry
       if (response.status === 429) {
@@ -185,9 +177,6 @@ export async function fetchNearTransactions(
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
       try {
-        // Debug log the API key
-        console.log('Using API key:', NEAR_BLOCKS_API_KEY);
-        
         const explorerResponse = await makeRateLimitedRequest(explorerUrl, {
           signal: controller.signal,
           mode: 'cors',
@@ -198,7 +187,6 @@ export async function fetchNearTransactions(
           }
         });
         
-        console.log("Explorer response:", explorerResponse);
         clearTimeout(timeoutId);
         
         if (explorerResponse.ok) {
