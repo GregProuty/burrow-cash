@@ -48,12 +48,12 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ validatorAddres
       fetchTransactionHistory();
       
       // Set up auto-refresh timer (every 2 minutes)
-      // const refreshTimer = g
+      const refreshTimer = 120000
       
       // Clean up the timer when unmounting
-      // return () => {
-      //   clearInterval(refreshTimer);
-      // };
+      return () => {
+        clearInterval(refreshTimer);
+      };
     }
   }, [accountId, validatorAddress]);
 

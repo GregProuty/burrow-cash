@@ -22,6 +22,80 @@ const METHOD_TO_OPERATION: Record<string, 'stake' | 'unstake' | 'withdraw'> = {
   'withdraw_from_pool': 'withdraw'
 };
 
+// Remove hardcoded API key and use environment variable
+const NEAR_BLOCKS_API_KEY = process.env.NEXT_PUBLIC_NEAR_BLOCKS_API_KEY;
+
+// Add error if API key is missing
+if (!NEAR_BLOCKS_API_KEY) {
+  console.error('NEAR Blocks API key is missing. Please add NEXT_PUBLIC_NEAR_BLOCKS_API_KEY to your .env file');
+}
+
+// Update rate limiting constants
+const RATE_LIMIT_DELAY = 2000; // 2 seconds between requests
+const MAX_RETRIES = 3;
+const RETRY_DELAYS = [2000, 4000, 8000]; // Longer exponential backoff delays
+const COOLDOWN_PERIOD = 5000; // 5 second cooldown after a 429
+
+// Add request throttling
+let lastRequestTime = 0;
+let last429Time = 0;
+
+/**
+ * Helper function to handle rate limiting
+ */
+async function makeRateLimitedRequest(url: string, options: RequestInit): Promise<Response> {
+  // Debug log the request
+  console.log('Making request to:', url);
+  console.log('Request headers:', options.headers);
+  
+  // Check if we're in cooldown period after a 429
+  const now = Date.now();
+  const timeSinceLast429 = now - last429Time;
+  if (timeSinceLast429 < COOLDOWN_PERIOD) {
+    const waitTime = COOLDOWN_PERIOD - timeSinceLast429;
+    console.log(`In cooldown period, waiting ${waitTime}ms`);
+    await new Promise(resolve => setTimeout(resolve, waitTime));
+  }
+  
+  // Ensure minimum time between requests
+  const timeSinceLastRequest = now - lastRequestTime;
+  if (timeSinceLastRequest < RATE_LIMIT_DELAY) {
+    await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY - timeSinceLastRequest));
+  }
+  
+  lastRequestTime = Date.now();
+  
+  // Try the request with retries
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      // Debug log the response
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      // If we get a 429, wait and retry
+      if (response.status === 429) {
+        last429Time = Date.now();
+        const retryDelay = RETRY_DELAYS[attempt] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
+        console.log(`Rate limited, retrying in ${retryDelay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        continue;
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('Request error:', error);
+      if (attempt === MAX_RETRIES - 1) throw error;
+      const retryDelay = RETRY_DELAYS[attempt] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
+      console.log(`Request failed, retrying in ${retryDelay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+    }
+  }
+  
+  throw new Error('Max retries exceeded');
+}
+
 /**
  * Helper to identify operation type from transaction logs
  */
@@ -111,18 +185,25 @@ export async function fetchNearTransactions(
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
       try {
-        const explorerResponse = await fetch(explorerUrl, {
+        // Debug log the API key
+        console.log('Using API key:', NEAR_BLOCKS_API_KEY);
+        
+        const explorerResponse = await makeRateLimitedRequest(explorerUrl, {
           signal: controller.signal,
-          mode: 'cors', // Explicitly set CORS mode
+          mode: 'cors',
           headers: {
-            'Accept': 'application/json'
+            'Accept': 'application/json',
+            'x-api-key': NEAR_BLOCKS_API_KEY,
+            'Content-Type': 'application/json'
           }
         });
+        
         console.log("Explorer response:", explorerResponse);
         clearTimeout(timeoutId);
         
         if (explorerResponse.ok) {
           const data = await explorerResponse.json();
+          console.log('Response data:', data);
           
           if (data && data.txns && Array.isArray(data.txns)) {
             transactions = data.txns;
@@ -419,7 +500,13 @@ export function checkAndCacheCurrentTransaction(accountId: string, validatorAddr
       // Fetch transaction details from NEAR Explorer API
       const exploreTransaction = async () => {
         try {
-          const response = await fetch(`https://api.nearblocks.io/v1/txns/${hash}`);
+          const response = await makeRateLimitedRequest(`https://api.nearblocks.io/v1/txns/${hash}`, {
+            headers: {
+              'Accept': 'application/json',
+              'x-api-key': NEAR_BLOCKS_API_KEY
+            }
+          });
+          
           if (response.ok) {
             const data = await response.json();
             if (data && data.txns && data.txns[0]) {
