@@ -62,6 +62,8 @@ const walletConnect = setupWalletConnect({
     icons: ["https://avatars.githubusercontent.com/u/37784886"],
   },
   chainId: `near:${defaultNetwork}`,
+  // Trim to minimal supported set that HERE Wallet supports
+  methods: ["near_getAccounts", "near_signTransaction", "near_signTransactions"],
 });
 
 const myNearWallet = setupMyNearWallet({
@@ -94,9 +96,14 @@ export const getWalletSelector = async ({ onAccountChange }: GetWalletSelectorAr
       setupLedger(),
     ],
     network: defaultNetwork,
-    debug: !!isTestnet,
+    debug: true, // Enable debug logging for WalletConnect issues
     optimizeWalletOrder: false,
   });
+
+  // Add WalletConnect debugging
+  console.log("WalletConnect setup with methods:", ["near_getAccounts", "near_signTransaction", "near_signTransactions"]);
+  console.log("WalletConnect chainId:", `near:${defaultNetwork}`);
+  console.log("WalletConnect projectId:", WALLET_CONNECT_ID);
   const { observable }: { observable: any } = selector.store;
   const subscription = observable
     .pipe(
