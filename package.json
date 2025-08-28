@@ -92,6 +92,7 @@
     "redux": "^4.2.0",
     "redux-persist": "^6.0.0",
     "remark-gfm": "^3.0.1",
+    "rhea-wallet-connect": "7.9.8",
     "rxjs": "^7.8.1",
     "serve": "^14.0.1",
     "stream-browserify": "^3.0.0",

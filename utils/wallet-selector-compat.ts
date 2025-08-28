@@ -6,7 +6,8 @@ import { setupHereWallet } from "@near-wallet-selector/here-wallet";
 import { setupNightly } from "@near-wallet-selector/nightly";
 import { setupMyNearWallet } from "@near-wallet-selector/my-near-wallet";
 import { setupMeteorWallet } from "@near-wallet-selector/meteor-wallet";
-import { setupWalletConnect } from "@near-wallet-selector/wallet-connect";
+// Swap to Rhea-patched WalletConnect adapter for Fireblocks compatibility testing
+import { setupWalletConnect } from "rhea-wallet-connect";
 import { setupNeth } from "@near-wallet-selector/neth";
 import { setupNearMobileWallet } from "@near-wallet-selector/near-mobile-wallet";
 import { setupModal } from "@near-wallet-selector/modal-ui";
@@ -53,17 +54,22 @@ let accountId: string;
 let init = false;
 let selector: WalletSelector | null = null;
 
+const nearChainId = `near:${getConfig(defaultNetwork).networkId}`;
+const wcMethods = ["near_getAccounts", "near_signTransaction", "near_signTransactions"];
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.burrow.finance";
+const appIcon = process.env.NEXT_PUBLIC_APP_ICON || "https://app.burrow.finance/icon-192.png";
+
 const walletConnect = setupWalletConnect({
   projectId: WALLET_CONNECT_ID,
   metadata: {
     name: "Burrow Cash",
     description: "Burrow with NEAR Wallet Selector",
-    url: "https://github.com/near/wallet-selector",
-    icons: ["https://avatars.githubusercontent.com/u/37784886"],
+    url: appUrl,
+    icons: [appIcon],
   },
-  chainId: `near:${getConfig(defaultNetwork).networkId}`,
-  // Fireblocks-compatible methods - removing problematic ones
-  methods: ["near_getAccounts", "near_signTransaction", "near_signTransactions"],
+  chainId: nearChainId,
+  // Fireblocks/HERE-safe methods
+  methods: wcMethods,
 });
 
 const myNearWallet = setupMyNearWallet({
@@ -112,11 +118,21 @@ export const getWalletSelector = async ({ onAccountChange }: GetWalletSelectorAr
 
   // Only log in browser to avoid SSR issues
   if (typeof window !== 'undefined') {
+    const requiredNamespaces = {
+      near: {
+        chains: [nearChainId],
+        methods: wcMethods,
+        events: [],
+      },
+    };
     console.log("Burrow WalletConnect:", {
       network: defaultNetwork,
       isTestnet: isTestnet,
-      chainId: `near:${getConfig(defaultNetwork).networkId}`,
-      methods: ["near_getAccounts", "near_signTransaction", "near_signTransactions"]
+      chainId: nearChainId,
+      methods: wcMethods,
+      requiredNamespaces,
+      projectId: WALLET_CONNECT_ID,
+      metadata: { url: appUrl, icons: [appIcon] },
     });
   }
   const { observable }: { observable: any } = selector.store;
