@@ -61,8 +61,8 @@ const walletConnect = setupWalletConnect({
     url: "https://github.com/near/wallet-selector",
     icons: ["https://avatars.githubusercontent.com/u/37784886"],
   },
-  chainId: `near:${defaultNetwork}`,
-  // Trim to minimal supported set that HERE Wallet supports
+  chainId: `near:${getConfig(defaultNetwork).networkId}`,
+  // Fireblocks-compatible methods - removing problematic ones
   methods: ["near_getAccounts", "near_signTransaction", "near_signTransactions"],
 });
 
@@ -73,6 +73,16 @@ const myNearWallet = setupMyNearWallet({
 export const getWalletSelector = async ({ onAccountChange }: GetWalletSelectorArgs) => {
   if (init) return selector;
   init = true;
+
+  // Only clear cache in browser, not during SSR
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem("near-wallet-selector:selectedWalletId");
+      localStorage.removeItem("near-wallet-selector:recentlySignedInWallets");
+    } catch (e) {
+      // Ignore localStorage errors
+    }
+  }
 
   selector = await setupWalletSelector({
     modules: [
@@ -96,14 +106,19 @@ export const getWalletSelector = async ({ onAccountChange }: GetWalletSelectorAr
       setupLedger(),
     ],
     network: defaultNetwork,
-    debug: true, // Enable debug logging for WalletConnect issues
+    debug: !!isTestnet, // Only debug on testnet to avoid SSR issues
     optimizeWalletOrder: false,
   });
 
-  // Add WalletConnect debugging
-  console.log("WalletConnect setup with methods:", ["near_getAccounts", "near_signTransaction", "near_signTransactions"]);
-  console.log("WalletConnect chainId:", `near:${defaultNetwork}`);
-  console.log("WalletConnect projectId:", WALLET_CONNECT_ID);
+  // Only log in browser to avoid SSR issues
+  if (typeof window !== 'undefined') {
+    console.log("Burrow WalletConnect:", {
+      network: defaultNetwork,
+      isTestnet: isTestnet,
+      chainId: `near:${getConfig(defaultNetwork).networkId}`,
+      methods: ["near_getAccounts", "near_signTransaction", "near_signTransactions"]
+    });
+  }
   const { observable }: { observable: any } = selector.store;
   const subscription = observable
     .pipe(
