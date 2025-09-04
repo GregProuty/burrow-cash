@@ -58,13 +58,15 @@ const nearChainId = `near:${getConfig(defaultNetwork).networkId}`;
 const wcMethods = ["near_getAccounts", "near_signTransaction", "near_signTransactions"];
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.burrow.finance";
 const appIcon = process.env.NEXT_PUBLIC_APP_ICON || "https://app.burrow.finance/icon-192.png";
+// Prefer the real browser origin so WalletConnect Verify can mark the proposal VALID
+const metadataUrl = typeof window !== "undefined" ? window.location.origin : appUrl;
 
 const walletConnect = setupWalletConnect({
   projectId: WALLET_CONNECT_ID,
   metadata: {
     name: "Burrow Cash",
     description: "Burrow with NEAR Wallet Selector",
-    url: appUrl,
+    url: metadataUrl,
     icons: [appIcon],
   },
   chainId: nearChainId,
@@ -132,8 +134,14 @@ export const getWalletSelector = async ({ onAccountChange }: GetWalletSelectorAr
       methods: wcMethods,
       requiredNamespaces,
       projectId: WALLET_CONNECT_ID,
-      metadata: { url: appUrl, icons: [appIcon] },
+      metadata: { url: metadataUrl, icons: [appIcon] },
     });
+    // Extra lifecycle logs to capture wallet-side failures
+    try {
+      // Pairing stats if available
+      const ps: any = (selector as any)?.core?.pairing?.pairings?.getAll?.() || [];
+      console.log("WC pairings count:", Array.isArray(ps) ? ps.length : "n/a");
+    } catch {}
   }
   const { observable }: { observable: any } = selector.store;
   const subscription = observable

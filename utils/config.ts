@@ -28,7 +28,7 @@ const getConfig = (env: string = defaultNetwork) => {
     case "mainnet":
       return {
         networkId: "mainnet",
-        nodeUrl: "https://near.lava.build",
+        nodeUrl: "rpc.near.org",
         walletUrl: "https://wallet.near.org",
         helperUrl: "https://helper.mainnet.near.org",
         explorerUrl: "https://explorer.mainnet.near.org",
