@@ -28,7 +28,7 @@ const getConfig = (env: string = defaultNetwork) => {
     case "mainnet":
       return {
         networkId: "mainnet",
-        nodeUrl: "rpc.near.org",
+        nodeUrl: "https://rpc.near.org",
         walletUrl: "https://wallet.near.org",
         helperUrl: "https://helper.mainnet.near.org",
         explorerUrl: "https://explorer.mainnet.near.org",
