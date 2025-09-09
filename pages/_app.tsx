@@ -40,6 +40,40 @@ const Init = () => {
         // await dispatch(fetchConfig());
         // await dispatch(fetchAssets());
         
+        // Runtime integrity checks for suspicious hook patterns (SEAL report)
+        if (typeof window !== 'undefined') {
+          const suspicious: string[] = [];
+
+          const isNative = (fn: unknown) => {
+            try {
+              if (typeof fn !== 'function') return true; // ignore non-functions
+              const src = Function.prototype.toString.call(fn);
+              return src.includes('[native code]');
+            } catch {
+              return false;
+            }
+          };
+
+          // Detect overridden fetch
+          if (typeof window.fetch !== 'undefined' && !isNative(window.fetch)) {
+            suspicious.push('fetch');
+          }
+
+          // Detect overridden XHR methods
+          const XHR = (window as any).XMLHttpRequest;
+          if (XHR && XHR.prototype) {
+            const open = XHR.prototype.open;
+            const send = XHR.prototype.send;
+            if (open && !isNative(open)) suspicious.push('XMLHttpRequest.open');
+            if (send && !isNative(send)) suspicious.push('XMLHttpRequest.send');
+          }
+
+          if (suspicious.length > 0) {
+            console.warn('[Security] Potential tampering detected:', suspicious.join(', '));
+            (window as any).__INTEGRITY_WARNINGS__ = suspicious;
+          }
+        }
+
         console.log('App initialization complete with limited functionality');
       } catch (error) {
         console.error('Initialization error:', error);
