@@ -27,12 +27,11 @@ const getConfig = (env: string = defaultNetwork) => {
     case "mainnet":
       return {
         networkId: "mainnet",
-        nodeUrl: process.env.NEXT_PUBLIC_MAINNET_RPC_URL || "https://rpc.near.org",
+        nodeUrl: process.env.NEXT_PUBLIC_MAINNET_RPC_URL || "https://near.lava.build:443",
         walletUrl: "https://wallet.near.org",
         helperUrl: "https://helper.mainnet.near.org",
         explorerUrl: "https://explorer.mainnet.near.org",
         liquidationUrl: "https://api.data-service.burrow.finance",
-
         recordsUrl: "https://indexer.ref.finance",
         SPECIAL_REGISTRATION_TOKEN_IDS: [
           "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",

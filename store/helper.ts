@@ -29,6 +29,9 @@ export const getPrices = async (): Promise<IPrices | undefined> => {
   const { view, oracleContract } = await getBurrow();
 
   try {
+    if (!oracleContract) {
+      throw new Error("oracleContract is undefined");
+    }
     const priceResponse: IPrices = (await view(
       oracleContract,
       ViewMethodsOracle[ViewMethodsOracle.get_price_data],

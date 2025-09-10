@@ -52,6 +52,7 @@ interface GetWalletSelectorArgs {
 let near: Near;
 let accountId: string;
 let init = false;
+let initPromise: Promise<WalletSelector | null> | null = null;
 let selector: WalletSelector | null = null;
 
 const nearChainId = `near:${getConfig(defaultNetwork).networkId}`;
@@ -72,14 +73,15 @@ const walletConnect = setupWalletConnect({
   chainId: nearChainId,
   // Fireblocks/HERE-safe methods
   methods: wcMethods,
-});
+} as any);
 
 const myNearWallet = setupMyNearWallet({
   walletUrl: isTestnet ? "https://testnet.mynearwallet.com" : "https://app.mynearwallet.com",
 });
 
 export const getWalletSelector = async ({ onAccountChange }: GetWalletSelectorArgs) => {
-  if (init) return selector;
+  if (selector) return selector;
+  if (initPromise) return initPromise;
   init = true;
 
   // Only clear cache in browser, not during SSR
@@ -92,7 +94,7 @@ export const getWalletSelector = async ({ onAccountChange }: GetWalletSelectorAr
     }
   }
 
-  selector = await setupWalletSelector({
+  initPromise = setupWalletSelector({
     modules: [
       myNearWallet,
       setupSender() as any,
@@ -116,7 +118,21 @@ export const getWalletSelector = async ({ onAccountChange }: GetWalletSelectorAr
     network: defaultNetwork,
     debug: !!isTestnet, // Only debug on testnet to avoid SSR issues
     optimizeWalletOrder: false,
-  });
+  })
+    .then((sel) => {
+      selector = sel;
+      return sel;
+    })
+    .catch((e) => {
+      console.error("Wallet selector initialization error:", e);
+      selector = null;
+      return null;
+    })
+    .finally(() => {
+      initPromise = null;
+    });
+
+  selector = await initPromise;
 
   // Only log in browser to avoid SSR issues
   if (typeof window !== 'undefined') {
@@ -143,6 +159,7 @@ export const getWalletSelector = async ({ onAccountChange }: GetWalletSelectorAr
       console.log("WC pairings count:", Array.isArray(ps) ? ps.length : "n/a");
     } catch {}
   }
+  if (!selector) return null;
   const { observable }: { observable: any } = selector.store;
   const subscription = observable
     .pipe(
