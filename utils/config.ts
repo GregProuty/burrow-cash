@@ -19,7 +19,6 @@ export const BRRR_TOKEN = {
 
 export const WALLET_CONNECT_ID =
   process.env.NEXT_PUBLIC_WALLET_CONNECT_ID || ("87e549918631f833447b56c15354e450" as string);
-  console.log('aloha process.env.NEXT_PUBLIC_WALLET_CONNECT_ID', process.env.NEXT_PUBLIC_WALLET_CONNECT_ID)
 
 export const missingPriceTokens = [REF_TOKEN, META_TOKEN, BRRR_TOKEN];
 const getConfig = (env: string = defaultNetwork) => {
@@ -33,6 +32,7 @@ const getConfig = (env: string = defaultNetwork) => {
         helperUrl: "https://helper.mainnet.near.org",
         explorerUrl: "https://explorer.mainnet.near.org",
         liquidationUrl: "https://api.data-service.burrow.finance",
+
         recordsUrl: "https://indexer.ref.finance",
         SPECIAL_REGISTRATION_TOKEN_IDS: [
           "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
