@@ -11,9 +11,17 @@ import { executeMultipleTransactions, getLastTransactionHash } from "../wallet";
 export async function withdrawNative({ amount, validatorAddress }: { amount: string; validatorAddress: string }) {
   console.log('aloha withdraw. amount', amount)
   console.log('aloha withdraw. validatorAddress', validatorAddress)
-  // const { logicContract } = await getBurrow();
+  // Ensure we have an active wallet connection
+  const { account } = await getBurrow();
+  if (!account || !account.accountId) {
+    console.error('Cannot withdraw: no connected wallet');
+    throw new Error('Please connect your wallet to withdraw');
+  }
 
   const withYoctos = nearAPI.utils.format.parseNearAmount(amount)?.toString() as string
+  if (!withYoctos) {
+    throw new Error('Invalid amount');
+  }
   const transactions = [{
     receiverId: validatorAddress,
     functionCalls: [

@@ -27,7 +27,7 @@ const getConfig = (env: string = defaultNetwork) => {
     case "mainnet":
       return {
         networkId: "mainnet",
-        nodeUrl: process.env.NEXT_PUBLIC_MAINNET_RPC_URL || "https://near.lava.build:443",
+        nodeUrl: process.env.NEXT_PUBLIC_MAINNET_RPC_URL || "https://near.lava.build",
         walletUrl: "https://wallet.near.org",
         helperUrl: "https://helper.mainnet.near.org",
         explorerUrl: "https://explorer.mainnet.near.org",
