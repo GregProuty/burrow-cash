@@ -22,12 +22,13 @@ export const WALLET_CONNECT_ID =
 
 export const missingPriceTokens = [REF_TOKEN, META_TOKEN, BRRR_TOKEN];
 const getConfig = (env: string = defaultNetwork) => {
+  let config;
   switch (env) {
     case "production":
     case "mainnet":
-      return {
+      config = {
         networkId: "mainnet",
-        nodeUrl: process.env.NEXT_PUBLIC_MAINNET_RPC_URL || "https://near.lava.build",
+        nodeUrl: process.env.NEXT_PUBLIC_MAINNET_RPC_URL || "https://free.rpc.fastnear.com",
         walletUrl: "https://wallet.near.org",
         helperUrl: "https://helper.mainnet.near.org",
         explorerUrl: "https://explorer.mainnet.near.org",
@@ -45,10 +46,12 @@ const getConfig = (env: string = defaultNetwork) => {
           "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
         ],
       } as unknown as ConnectConfig;
+      console.log(`[Config] Using nodeUrl for ${env}:`, config.nodeUrl);
+      return config;
 
     case "development":
     case "testnet":
-      return {
+      config = {
         networkId: "testnet",
         nodeUrl: "https://rpc.testnet.near.org",
         walletUrl: "https://wallet.testnet.near.org",
@@ -62,8 +65,10 @@ const getConfig = (env: string = defaultNetwork) => {
         NATIVE_TOKENS: ["usdc.fakes.testnet"],
         NEW_TOKENS: ["usdc.fakes.testnet"],
       } as unknown as ConnectConfig;
+      console.log(`[Config] Using nodeUrl for ${env}:`, config.nodeUrl);
+      return config;
     case "betanet":
-      return {
+      config = {
         networkId: "betanet",
         nodeUrl: "https://rpc.betanet.near.org",
         walletUrl: "https://wallet.betanet.near.org",
@@ -71,31 +76,39 @@ const getConfig = (env: string = defaultNetwork) => {
         explorerUrl: "https://explorer.betanet.near.org",
         SPECIAL_REGISTRATION_TOKEN_IDS: [],
       } as unknown as ConnectConfig;
+      console.log(`[Config] Using nodeUrl for ${env}:`, config.nodeUrl);
+      return config;
     case "local":
-      return {
+      config = {
         networkId: "local",
         nodeUrl: "http://localhost:3030",
         keyPath: `${process.env.HOME}/.near/validator_key.json`,
         walletUrl: "http://localhost:4000/wallet",
       } as ConnectConfig;
+      console.log(`[Config] Using nodeUrl for ${env}:`, config.nodeUrl);
+      return config;
     case "test":
     case "ci":
-      return {
+      config = {
         networkId: "shared-test",
         nodeUrl: "https://rpc.ci-testnet.near.org",
         masterAccount: "test.near",
       } as ConnectConfig;
+      console.log(`[Config] Using nodeUrl for ${env}:`, config.nodeUrl);
+      return config;
     case "ci-betanet":
-      return {
+      config = {
         networkId: "shared-test-staging",
         nodeUrl: "https://rpc.ci-betanet.near.org",
         masterAccount: "test.near",
       } as ConnectConfig;
+      console.log(`[Config] Using nodeUrl for ${env}:`, config.nodeUrl);
+      return config;
     default:
       throw Error(`Unconfigured environment '${env}'. Can be configured in src/config.js.`);
   }
 };
-
+console.log("defaultNetwork", defaultNetwork);
 export const isTestnet = getConfig(defaultNetwork).networkId === "testnet";
 
 export default getConfig;

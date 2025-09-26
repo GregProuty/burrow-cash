@@ -184,10 +184,12 @@ export const getNear = () => {
   const config = getConfig(defaultNetwork);
   const keyStore = new BrowserLocalStorageKeyStore();
   if (!near) {
+    console.log(`[NEAR Connection] Establishing connection to nodeUrl:`, config.nodeUrl);
     near = new Near({
       ...config,
       deps: { keyStore },
     });
+    console.log(`[NEAR Connection] Successfully connected to network:`, config.networkId);
   }
   return near;
 };
