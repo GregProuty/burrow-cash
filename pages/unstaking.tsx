@@ -26,7 +26,7 @@ import { stakeNative } from "../store/actions/stake-native";
 import { withdrawNative } from "../store/actions/withdraw-native";
 import { getAccountBalance } from "../redux/accountSelectors";
 import * as nearAPI from 'near-api-js'
-import { defaultNetwork } from "../utils/config";
+import getConfig, { defaultNetwork } from "../utils/config";
 import { Near } from "near-api-js/lib/near";
 import { Account } from "near-api-js";
 import { ToastContainer, toast } from 'react-toastify';
@@ -34,7 +34,8 @@ import 'react-toastify/dist/ReactToastify.css';
 import TransactionHistory from "../components/TransactionHistory/TransactionHistory";
 import { cacheTransaction, identifyOperationType } from "../components/TransactionHistory/near-transaction.service";
 
-const nodeUrl = "https://rpc.mainnet.near.org"
+const config = getConfig(defaultNetwork);
+const nodeUrl = config.nodeUrl;
 
 const StakingNative = () => {
   const [total, totalUnclaim, totalToken] = useAppSelector(getTotalBRRR);
