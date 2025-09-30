@@ -6,7 +6,7 @@ import { PersistGate } from "redux-persist/integration/react";
 import { init, ErrorBoundary } from "@sentry/react";
 import { BrowserTracing } from "@sentry/tracing";
 import { ThemeProvider } from "@mui/material/styles";
-import { useToast } from "@chakra-ui/react";
+import { ChakraProvider, useToast } from "@chakra-ui/react";
 
 import "../styles/global.css";
 import LoadingBar from "react-top-loading-bar";
@@ -149,7 +149,8 @@ const MyApp = ({ Component, pageProps }: AppProps) => {
     <ErrorBoundary fallback={FallbackError}>
       <Provider store={store}>
         <PersistGate loading={null} persistor={persistor}>
-          <ThemeProvider theme={muiTheme}>
+          <ChakraProvider>
+            <ThemeProvider theme={muiTheme}>
             <Head>
               <link rel="shortcut icon" href="/favicon.ico" />
               <title>Burrow Cash</title>
@@ -175,7 +176,8 @@ const MyApp = ({ Component, pageProps }: AppProps) => {
                 <Component {...pageProps} />
               )}
             </Layout>
-          </ThemeProvider>
+            </ThemeProvider>
+          </ChakraProvider>
         </PersistGate>
       </Provider>
     </ErrorBoundary>

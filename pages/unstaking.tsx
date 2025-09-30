@@ -1,27 +1,21 @@
-import React, { useContext, useEffect, useState } from "react";
-import { Stack, Typography, Box, useTheme } from "@mui/material";
+import React, { useEffect, useState } from "react";
+import { useTheme } from "@mui/material";
 import { DateTime } from "luxon";
 import styled from "styled-components";
 import { twMerge } from "tailwind-merge";
-// import { BrrrLogo, StakingPill, StakingCard, LiveUnclaimedAmount } from "../components/index";
 import { useAppSelector } from "../redux/hooks";
 import { getTotalBRRR } from "../redux/selectors/getTotalBRRR";
-import { TOKEN_FORMAT } from "../store";
 import { useStaking } from "../hooks/useStaking";
 import { useClaimAllRewards } from "../hooks/useClaimAllRewards";
-import { trackUnstake } from "../utils/telemetry";
 import { unstakeNative } from "../store/actions/unstake-native";
-// import { unstake } from "../store/actions/unstake";
 import { useAccountId } from "../hooks/hooks";
 import { ContentBox } from "../components/ContentBox/ContentBox";
 import CustomButton from "../components/CustomButton/CustomButton";
 import LayoutContainer from "../components/LayoutContainer/LayoutContainer";
 import ModalStaking from "../screens/Staking/modalStaking";
 import { modalProps } from "../interfaces/common";
-import { LockIcon, Mascot, UnlockIcon } from "../components/Icons/Icons";
-import { formatAPYValue, isMobileDevice } from "../helpers/helpers";
-import { ConnectWalletButton, WalletContext } from "../components/Header/WalletButton";
-import { BrrrLogo } from "../screens/Staking/components";
+import { LockIcon, UnlockIcon } from "../components/Icons/Icons";
+import { isMobileDevice } from "../helpers/helpers";
 import { stakeNative } from "../store/actions/stake-native";
 import { withdrawNative } from "../store/actions/withdraw-native";
 import { getAccountBalance } from "../redux/accountSelectors";
@@ -39,16 +33,12 @@ const nodeUrl = config.nodeUrl;
 
 const StakingNative = () => {
   const [total, totalUnclaim, totalToken] = useAppSelector(getTotalBRRR);
-  const { BRRR, stakingTimestamp, stakingNetAPY, stakingNetTvlAPY } = useStaking();
+  const { BRRR, stakingTimestamp } = useStaking();
   const { handleClaimAll, isLoading } = useClaimAllRewards("staking");
   const [loadingUnstake, setLoadingUnstake] = useState(false);
   const [isModalOpen, openModal] = useState(false);
   const [modal, setModal] = useState<modalProps>();
   const accountId = useAccountId();
-  const theme = useTheme();
-  const isMobile = isMobileDevice();
-  const unstakeDate = DateTime.fromMillis(stakingTimestamp / 1e6);
-  // const disabledUnstake = !BRRR || DateTime.now() < unstakeDate;
   const disabledUnstake = false
 
   // added for the near native staking
@@ -65,12 +55,8 @@ const StakingNative = () => {
   const [formattedUnstakedBalance, setFormattedUnstakedBalance] = useState<string | null>("0")
   const [isAvailableToWithdraw, setIsAvailableToWithdraw] = useState(false)
 
-  // const context = useContext(WalletContext);
-  // console.log('aloha context', context)
   const balance = useAppSelector(getAccountBalance);
   const formattedBalance = Number.parseFloat(balance).toFixed(2)
-  // console.log('aloha balance', balance)
-  // console.log('aloha formattedBalance', formattedBalance)
 
   useEffect(() => {
     const start = async () => {
@@ -92,7 +78,6 @@ const StakingNative = () => {
       // we just need this to query, but you must supply something valid
       const accountConn = await nearConn.account("mike.near")
       setAccountConn(accountConn)
-      // accountConn.viewFunction(selectedValidator,)
     }
     start()
   }, []);

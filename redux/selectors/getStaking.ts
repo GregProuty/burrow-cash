@@ -9,6 +9,19 @@ export const getStaking = createSelector(
     const { config } = app;
     const { amount, months } = app.staking;
 
+    // Return default values if config is not loaded yet
+    if (!config || config.booster_decimals === undefined || config.booster_decimals === null) {
+      return {
+        BRRR: 0,
+        xBRRR: 0,
+        extraXBRRRAmount: 0,
+        totalXBRRR: 0,
+        stakingTimestamp: 0,
+        amount,
+        months,
+      };
+    }
+
     const BRRR = Number(
       shrinkToken(account.portfolio.staking["staked_booster_amount"], app.config.booster_decimals),
     );

@@ -32,72 +32,172 @@ export interface FunctionCallOptions {
 export const executeMultipleTransactions = async (transactions) => {
   console.log('aloha executeMultipleTransactions called with:', transactions);
   
-  const { account, selector, hideModal, signOut, fetchData } = await getBurrow();
-  console.log('aloha got burrow, account:', account?.accountId);
-
-  const selectorTransactions: Array<SelectorTransaction> = transactions.map((t) => ({
-    signerId: account.accountId,
-    receiverId: t.receiverId,
-    actions: t.functionCalls.map(
-      ({ methodName, args = {}, gas = "100000000000000", attachedDeposit = "1" }) => ({
-        type: "FunctionCall",
-        params: {
-          methodName,
-          args,
-          gas: gas.toString(),
-          deposit: attachedDeposit.toString(),
-        },
-      }),
-    ),
-  }));
-
-  console.log('aloha prepared selector transactions:', selectorTransactions);
-
   try {
-    console.log('aloha getting wallet from selector...');
-    const wallet = await selector.wallet();
-    console.log('aloha got wallet:', wallet?.id);
-    
-    localStorage.setItem('pendingAction', 'Transaction');
-    localStorage.setItem('pendingTransactionTime', Date.now().toString());
-    
-    console.log('aloha about to call signAndSendTransactions...');
-    const result: any = await wallet.signAndSendTransactions({
-      transactions: selectorTransactions,
-    });
-    console.log('aloha signAndSendTransactions completed with result:', result);
-    
-    if (result) {
-      const txHash = Array.isArray(result) 
-        ? result[0]?.transaction_outcome?.id
-        : (result.transactionHashes?.[0] || result.transaction?.hash);
+    const { account, selector, hideModal, signOut, fetchData } = await getBurrow();
+    console.log('aloha got burrow, account:', account?.accountId);
+
+    const selectorTransactions: Array<SelectorTransaction> = transactions.map((t) => ({
+      signerId: account.accountId,
+      receiverId: t.receiverId,
+      actions: t.functionCalls.map(
+        ({ methodName, args = {}, gas = "100000000000000", attachedDeposit = "1" }) => ({
+          type: "FunctionCall",
+          params: {
+            methodName,
+            args,
+            gas: gas.toString(),
+            deposit: attachedDeposit.toString(),
+          },
+        }),
+      ),
+    }));
+
+    console.log('aloha prepared selector transactions:', selectorTransactions);
+
+    try {
+      console.log('aloha getting wallet from selector...');
+      const wallet = await selector.wallet();
+      console.log('aloha got wallet:', wallet?.id);
+      console.log('aloha wallet state:', await selector.store.getState());
       
-      if (txHash) {
-        localStorage.setItem('lastTransactionHash', txHash);
-        localStorage.setItem('lastTransactionTime', Date.now().toString());
+      // Check if wallet is actually connected
+      const accounts = await wallet.getAccounts();
+      console.log('aloha wallet accounts:', accounts);
+      
+      // Check WalletConnect specific state if it's a WC wallet (likely Fireblocks)
+      if (wallet.id === 'wallet-connect') {
+        console.log('aloha WalletConnect wallet detected (likely Fireblocks)');
+        // Try to get additional WC state info
+        try {
+          const walletState = (wallet as any);
+          console.log('aloha WC wallet state keys:', Object.keys(walletState));
+          if (walletState.connector) {
+            console.log('aloha WC connector connected:', walletState.connector.connected);
+            console.log('aloha WC session active:', !!walletState.connector.session);
+            if (walletState.connector.session) {
+              console.log('aloha WC session peer name:', walletState.connector.session.peer?.metadata?.name);
+            }
+          }
+          
+          // Additional Fireblocks-specific checks
+          if (walletState.client) {
+            console.log('aloha WC client connected:', walletState.client.connected);
+          }
+        } catch (wcError) {
+          console.log('aloha could not get WC state:', wcError);
+        }
       }
+
+      localStorage.setItem('pendingAction', 'Transaction');
+      localStorage.setItem('pendingTransactionTime', Date.now().toString());
+
+      console.log('aloha about to call signAndSendTransactions...');
+      console.log('aloha wallet type:', wallet.id);
+      console.log('aloha wallet metadata:', wallet.metadata);
+      console.log('aloha transaction details:', JSON.stringify(selectorTransactions, null, 2));
+      
+      // Adjust timeout based on wallet type - Fireblocks needs more time
+      const isFireblocks = wallet.id === 'wallet-connect';
+      const timeoutDuration = isFireblocks ? 120000 : 60000; // 2 minutes for Fireblocks, 1 minute for others
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          const walletName = isFireblocks ? 'Fireblocks (via WalletConnect)' : wallet.metadata?.name || 'wallet';
+          reject(new Error(`Transaction timed out after ${timeoutDuration/1000} seconds - no response from ${walletName}`));
+        }, timeoutDuration);
+      });
+      
+      const transactionPromise = wallet.signAndSendTransactions({
+        transactions: selectorTransactions,
+      });
+      
+      console.log('aloha waiting for wallet response...');
+      
+      // Add progress logging with wallet-specific messages
+      let progressTimer = setInterval(() => {
+        if (isFireblocks) {
+          console.log('aloha still waiting for Fireblocks response... (check Fireblocks app for transaction approval)');
+        } else {
+          console.log('aloha still waiting for wallet response...');
+        }
+      }, 5000);
+      
+      try {
+        const result: any = await Promise.race([transactionPromise, timeoutPromise]);
+        clearInterval(progressTimer);
+        console.log('aloha signAndSendTransactions completed with result:', result);
+        
+        if (result) {
+          const txHash = Array.isArray(result) 
+            ? result[0]?.transaction_outcome?.id
+            : (result.transactionHashes?.[0] || result.transaction?.hash);
+          
+          if (txHash) {
+            localStorage.setItem('lastTransactionHash', txHash);
+            localStorage.setItem('lastTransactionTime', Date.now().toString());
+          }
+        }
+        
+        if (fetchData) fetchData(account.accountId);
+        
+        return result;
+      } catch (error) {
+        clearInterval(progressTimer);
+        console.error('aloha transaction failed or timed out:', error);
+        
+        // If it's a timeout, provide helpful guidance
+        if (error.message.includes('timed out')) {
+          console.error('aloha TIMEOUT GUIDANCE:');
+          if (isFireblocks) {
+            console.error('FIREBLOCKS SPECIFIC TROUBLESHOOTING:');
+            console.error('1. Open the Fireblocks mobile app and check for pending transaction approvals');
+            console.error('2. Ensure you have proper signing permissions for this transaction type');
+            console.error('3. Check if your Fireblocks session is still active (may need to re-authenticate)');
+            console.error('4. Verify WalletConnect connection is stable');
+            console.error('5. Try disconnecting and reconnecting the wallet');
+            console.error('6. Contact your Fireblocks admin if transaction policies are blocking the transaction');
+          } else {
+            console.error('GENERAL WALLET TROUBLESHOOTING:');
+            console.error('1. Check if your wallet app is open and responsive');
+            console.error('2. Verify wallet connection is active');
+            console.error('3. Try disconnecting and reconnecting wallet');
+            console.error('4. Check network connectivity');
+          }
+        }
+        
+        // Note: Removed alert popup - using console logging instead for timeout guidance
+        
+        throw error;
+      } finally {
+        localStorage.removeItem('pendingAction');
+        localStorage.removeItem('pendingTransactionTime');
+      }
+    } catch (e: any) {
+      console.error('aloha wallet error:', e);
+      throw e;
     }
-    
-    if (fetchData) fetchData(account.accountId);
-    
-    return result;
   } catch (e: any) {
     if (/reject/.test(e)) {
-      alert("Transaction was rejected in wallet. Please try again!");
-      hideModal();
+      console.log("Transaction was rejected in wallet");
+      const { hideModal } = await getBurrow();
+      if (hideModal) hideModal();
       return null;
     }
     if (!/No accounts available/.test(e)) {
       throw e;
     }
     console.warn(e);
-    signOut();
-    alert(
-      "No accounts available. Your wallet may be locked. You have been signed out. Please sign in again!",
-    );
+    const { signOut } = await getBurrow();
+    if (signOut) signOut();
+    console.log("No accounts available. Wallet may be locked. User signed out.");
     return null;
   } finally {
-    if (hideModal) hideModal();
+    try {
+      const { hideModal } = await getBurrow();
+      if (hideModal) hideModal();
+    } catch (e) {
+      // Ignore errors in cleanup
+    }
   }
 };
 

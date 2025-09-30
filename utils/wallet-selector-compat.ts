@@ -74,6 +74,9 @@ const walletConnect = setupWalletConnect({
   chainId: getNearChainId(),
   // Fireblocks/HERE-safe methods
   methods: wcMethods,
+  // Add debug logging for WalletConnect events
+  debug: true,
+  logger: 'debug',
 } as any);
 
 const myNearWallet = setupMyNearWallet({

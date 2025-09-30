@@ -2,13 +2,14 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
 import { defaultNetwork, missingPriceTokens } from "../utils/config";
 import { initialState } from "./assetState";
-import { transformAssets } from "../transformers/asstets";
 import getAssets from "../api/get-assets";
 import getFarm from "../api/get-farm";
 
 export const fetchAssets = createAsyncThunk("assets/fetchAssets", async (_, { rejectWithValue }) => {
   try {
-    const assets = await getAssets().then(transformAssets);
+    const assetsData = await getAssets();
+    // The getAssets function already returns the transformed data, so we don't need to transform again
+    const assets = assetsData || {};
     const netTvlFarm = await getFarm("NetTvl");
     return { assets, netTvlFarm };
   } catch (error) {
