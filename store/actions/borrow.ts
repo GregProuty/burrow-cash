@@ -8,7 +8,11 @@ import { prepareAndExecuteTransactions, getMetadata, getTokenContract } from "..
 import { NEAR_DECIMALS, NO_STORAGE_DEPOSIT_CONTRACTS, NEAR_STORAGE_DEPOSIT } from "../constants";
 import getConfig from "../../utils/config";
 
-const { SPECIAL_REGISTRATION_TOKEN_IDS } = getConfig() as any;
+// Lazy load to avoid calling getConfig at module load time
+const getSpecialRegistrationTokenIds = () => {
+  const { SPECIAL_REGISTRATION_TOKEN_IDS } = getConfig() as any;
+  return SPECIAL_REGISTRATION_TOKEN_IDS;
+};
 export async function borrow({
   tokenId,
   extraDecimals,
@@ -19,6 +23,11 @@ export async function borrow({
   amount: string;
 }) {
   const { oracleContract, logicContract, account } = await getBurrow();
+  
+  if (!oracleContract) {
+    throw new Error("Oracle contract not available. Please ensure wallet is connected and try again.");
+  }
+  
   const { decimals } = (await getMetadata(tokenId))!;
   const tokenContract = await getTokenContract(tokenId);
   const isNEAR = tokenId === nearTokenId;
@@ -30,7 +39,7 @@ export async function borrow({
     !(await isRegistered(account.accountId, tokenContract)) &&
     !NO_STORAGE_DEPOSIT_CONTRACTS.includes(tokenContract.contractId)
   ) {
-    if (SPECIAL_REGISTRATION_TOKEN_IDS.includes(tokenContract.contractId)) {
+    if (getSpecialRegistrationTokenIds().includes(tokenContract.contractId)) {
       const r = await isRegisteredNew(account.accountId, tokenContract);
       if (r) {
         transactions.push({

@@ -20,6 +20,11 @@ export async function adjustCollateral({
   isMax: boolean;
 }) {
   const { oracleContract, logicContract, account, call } = await getBurrow();
+  
+  if (!oracleContract) {
+    throw new Error("Oracle contract not available. Please ensure wallet is connected and try again.");
+  }
+  
   const { decimals } = (await getMetadata(tokenId))!;
   const detailedAccount = (await getAccountDetailed(account.accountId))!;
 

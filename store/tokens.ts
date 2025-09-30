@@ -31,7 +31,15 @@ import {
 
 import getConfig from "../utils/config";
 
-const { SPECIAL_REGISTRATION_TOKEN_IDS } = getConfig() as any;
+// Lazy load to avoid calling getConfig at module load time
+const getSpecialRegistrationTokenIds = () => {
+  const { SPECIAL_REGISTRATION_TOKEN_IDS } = getConfig() as any;
+  return SPECIAL_REGISTRATION_TOKEN_IDS;
+};
+
+// Cache for getMetadata to reduce excessive RPC calls
+const metadataCache = new Map<string, { result: IMetadata; timestamp: number }>();
+const METADATA_CACHE_DURATION = 300000; // 5 minutes (metadata rarely changes)
 
 Decimal.set({ precision: DEFAULT_PRECISION });
 
@@ -50,6 +58,27 @@ export const getTokenContract = async (tokenContractAddress: string): Promise<Co
 
 export const getMetadata = async (token_id: string): Promise<IMetadata | undefined> => {
   try {
+    // Special case for Aurora to avoid WASM execution errors
+    if (token_id === 'aurora') {
+      return {
+        token_id: 'aurora',
+        name: 'Aurora',
+        symbol: 'AURORA',
+        decimals: 18,
+        icon: null,
+        reference: null,
+        reference_hash: null,
+      } as IMetadata;
+    }
+
+    // Check cache first
+    const cached = metadataCache.get(token_id);
+    const now = Date.now();
+    
+    if (cached && (now - cached.timestamp) < METADATA_CACHE_DURATION) {
+      return cached.result;
+    }
+
     const { view } = await getBurrow();
     if (!view) {
       console.warn("View function is not available - wallet might not be connected");
@@ -64,6 +93,10 @@ export const getMetadata = async (token_id: string): Promise<IMetadata | undefin
     )) as IMetadata;
 
     metadata.token_id = token_id;
+    
+    // Cache the result
+    metadataCache.set(token_id, { result: metadata, timestamp: now });
+    
     return metadata;
   } catch (err: any) {
     console.error(`Failed to get metadata for ${token_id} ${err.message}`);
@@ -149,7 +182,7 @@ export const prepareAndExecuteTokenTransactions = async (
     !(await isRegistered(account.accountId, tokenContract)) &&
     !NO_STORAGE_DEPOSIT_CONTRACTS.includes(tokenContract.contractId)
   ) {
-    if (SPECIAL_REGISTRATION_TOKEN_IDS.includes(tokenContract.contractId)) {
+    if (getSpecialRegistrationTokenIds().includes(tokenContract.contractId)) {
       const r = await isRegisteredNew(account.accountId, tokenContract);
       if (r) {
         transactions.push({

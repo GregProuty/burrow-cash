@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { TableProps } from "../../components/Table";
 import { ArrowDownIcon, ArrowUpIcon, ArrowLineDownIcon, CheckIcon, NewTagIcon } from "./svg";
 import type { UIAsset } from "../../interfaces";
@@ -234,7 +234,11 @@ function TableRow({
   borrowApyMap: Record<string, number>;
   setBorrowApyMap: any;
 }) {
-  const { NATIVE_TOKENS, NEW_TOKENS } = getConfig() as any;
+  // Memoize config to avoid excessive calls
+  const { NATIVE_TOKENS, NEW_TOKENS } = useMemo(() => {
+    const config = getConfig() as any;
+    return { NATIVE_TOKENS: config.NATIVE_TOKENS, NEW_TOKENS: config.NEW_TOKENS };
+  }, []);
   const isMobile = isMobileDevice();
   const depositAPY = useAPY({
     baseAPY: row.supplyApy,

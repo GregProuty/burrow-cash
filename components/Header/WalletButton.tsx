@@ -33,10 +33,7 @@ import NearIcon from "../../public/near-icon.svg";
 import ClaimAllRewards from "../ClaimAllRewards";
 import { formatWithCommas_usd } from "../../utils/uiNumber";
 import { isMobileDevice } from "../../helpers/helpers";
-import getConfig from "../../utils/config";
 import CopyToClipboardComponent from "./CopyToClipboardComponent";
-
-const config = getConfig();
 
 export const WalletContext = createContext(null) as any;
 const WalletButton = () => {

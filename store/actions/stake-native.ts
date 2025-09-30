@@ -45,17 +45,26 @@ export async function stakeNative({ amount, validatorAddress }: { amount: string
   // Store the action type
   localStorage.setItem('pendingAction', 'Stake');
   
-  // Execute and get result (might be undefined)
-  const result = await executeMultipleTransactions(transactions);
+  console.log('aloha about to execute transactions:', transactions);
   
-  // If no result with hash, try to get the most recent transaction hash
-  if (!result || !(Array.isArray(result) ? result[0]?.transaction_outcome?.id : (result.transactionHashes || result.transaction?.hash))) {
-    const lastHash = getLastTransactionHash();
-    if (lastHash) {
-      // Create a result object if we found a hash in localStorage
-      return { transaction: { hash: lastHash } };
+  try {
+    // Execute and get result (might be undefined)
+    const result = await executeMultipleTransactions(transactions);
+    console.log('aloha transaction result:', result);
+    
+    // If no result with hash, try to get the most recent transaction hash
+    if (!result || !(Array.isArray(result) ? result[0]?.transaction_outcome?.id : (result.transactionHashes || result.transaction?.hash))) {
+      const lastHash = getLastTransactionHash();
+      if (lastHash) {
+        console.log('aloha using cached transaction hash:', lastHash);
+        // Create a result object if we found a hash in localStorage
+        return { transaction: { hash: lastHash } };
+      }
     }
+    
+    return result;
+  } catch (error) {
+    console.error('aloha staking failed:', error);
+    throw error;
   }
-  
-  return result;
 }

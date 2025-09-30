@@ -20,6 +20,11 @@ export async function repayFromDeposits({
   isMax: boolean;
 }) {
   const { logicContract, oracleContract } = await getBurrow();
+  
+  if (!oracleContract) {
+    throw new Error("Oracle contract not available. Please ensure wallet is connected and try again.");
+  }
+  
   const { decimals } = (await getMetadata(tokenId))!;
   const account = await getAccount().then(transformAccount);
   if (!account) return;

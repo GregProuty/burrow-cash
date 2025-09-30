@@ -7,7 +7,15 @@ import { ViewMethodsLogic } from "../interfaces/contract-methods";
 import { Balance } from "../interfaces";
 import getConfig from "../utils/config";
 
-const { SPECIAL_REGISTRATION_TOKEN_IDS } = getConfig() as any;
+// Lazy load to avoid calling getConfig at module load time
+const getSpecialRegistrationTokenIds = () => {
+  const { SPECIAL_REGISTRATION_TOKEN_IDS } = getConfig() as any;
+  return SPECIAL_REGISTRATION_TOKEN_IDS;
+};
+
+// Cache for isRegistered to reduce excessive RPC calls
+const registrationCache = new Map<string, { result: boolean; timestamp: number }>();
+const REGISTRATION_CACHE_DURATION = 60000; // 1 minute
 
 export interface Transaction {
   receiverId: string;
@@ -22,7 +30,10 @@ export interface FunctionCallOptions {
 }
 
 export const executeMultipleTransactions = async (transactions) => {
+  console.log('aloha executeMultipleTransactions called with:', transactions);
+  
   const { account, selector, hideModal, signOut, fetchData } = await getBurrow();
+  console.log('aloha got burrow, account:', account?.accountId);
 
   const selectorTransactions: Array<SelectorTransaction> = transactions.map((t) => ({
     signerId: account.accountId,
@@ -40,14 +51,21 @@ export const executeMultipleTransactions = async (transactions) => {
     ),
   }));
 
+  console.log('aloha prepared selector transactions:', selectorTransactions);
+
   try {
+    console.log('aloha getting wallet from selector...');
     const wallet = await selector.wallet();
+    console.log('aloha got wallet:', wallet?.id);
+    
     localStorage.setItem('pendingAction', 'Transaction');
     localStorage.setItem('pendingTransactionTime', Date.now().toString());
     
+    console.log('aloha about to call signAndSendTransactions...');
     const result: any = await wallet.signAndSendTransactions({
       transactions: selectorTransactions,
     });
+    console.log('aloha signAndSendTransactions completed with result:', result);
     
     if (result) {
       const txHash = Array.isArray(result) 
@@ -94,13 +112,24 @@ export const getLastTransactionHash = () => {
 };
 
 export const isRegistered = async (account_id: string, contract: Contract): Promise<boolean> => {
+  // Check cache first
+  const cacheKey = `${account_id}:${contract.contractId}`;
+  const cached = registrationCache.get(cacheKey);
+  const now = Date.now();
+  
+  if (cached && (now - cached.timestamp) < REGISTRATION_CACHE_DURATION) {
+    return cached.result;
+  }
+
   const { view } = await getBurrow();
-  if (SPECIAL_REGISTRATION_TOKEN_IDS.includes(contract.contractId)) {
+  let result: boolean;
+  
+  if (getSpecialRegistrationTokenIds().includes(contract.contractId)) {
     try {
       const balance = (await view(contract, ViewMethodsLogic[ViewMethodsLogic.storage_balance_of], {
         account_id,
       })) as Balance;
-      return balance && balance?.total !== "0";
+      result = balance && balance?.total !== "0";
     } catch (error) {
       const registration = (await view(
         contract,
@@ -109,14 +138,18 @@ export const isRegistered = async (account_id: string, contract: Contract): Prom
           account_id,
         },
       )) as boolean;
-      return registration;
+      result = registration;
     }
   } else {
     const balance = (await view(contract, ViewMethodsLogic[ViewMethodsLogic.storage_balance_of], {
       account_id,
     })) as Balance;
-    return balance && balance?.total !== "0";
+    result = balance && balance?.total !== "0";
   }
+  
+  // Cache the result
+  registrationCache.set(cacheKey, { result, timestamp: now });
+  return result;
 };
 export const isRegisteredNew = async (account_id: string, contract: Contract): Promise<boolean> => {
   const { view } = await getBurrow();

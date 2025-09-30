@@ -25,13 +25,41 @@ export const rateToApr = (rate: string): string => {
   return apr.toFixed(2);
 };
 
-export const getPrices = async (): Promise<IPrices | undefined> => {
-  const { view, oracleContract } = await getBurrow();
+// Cache for getPrices to reduce excessive calls and logging
+let pricesCache: IPrices | undefined = undefined;
+let pricesCacheTime = 0;
+let lastPricesWarningTime = 0;
+const PRICES_CACHE_DURATION = 30000; // 30 seconds
+const WARNING_THROTTLE_DURATION = 10000; // 10 seconds
 
+export const getPrices = async (): Promise<IPrices | undefined> => {
   try {
-    if (!oracleContract) {
-      throw new Error("oracleContract is undefined");
+    // Return cached prices if still valid
+    const now = Date.now();
+    if (pricesCache && (now - pricesCacheTime) < PRICES_CACHE_DURATION) {
+      return pricesCache;
     }
+
+    const { view, oracleContract, account } = await getBurrow();
+
+    if (!account || !account.accountId) {
+      // Throttle warning messages to reduce log spam
+      if ((now - lastPricesWarningTime) > WARNING_THROTTLE_DURATION) {
+        console.warn("Cannot fetch prices: wallet not connected");
+        lastPricesWarningTime = now;
+      }
+      return undefined;
+    }
+
+    if (!oracleContract) {
+      // Throttle warning messages to reduce log spam
+      if ((now - lastPricesWarningTime) > WARNING_THROTTLE_DURATION) {
+        console.warn("Cannot fetch prices: oracleContract not available (config may not be loaded yet)");
+        lastPricesWarningTime = now;
+      }
+      return undefined;
+    }
+
     const priceResponse: IPrices = (await view(
       oracleContract,
       ViewMethodsOracle[ViewMethodsOracle.get_price_data],
@@ -47,6 +75,10 @@ export const getPrices = async (): Promise<IPrices | undefined> => {
             }
           : null,
       }))!;
+      
+      // Cache successful response
+      pricesCache = priceResponse;
+      pricesCacheTime = now;
     }
 
     return priceResponse;

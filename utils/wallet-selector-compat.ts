@@ -55,7 +55,8 @@ let init = false;
 let initPromise: Promise<WalletSelector | null> | null = null;
 let selector: WalletSelector | null = null;
 
-const nearChainId = `near:${getConfig(defaultNetwork).networkId}`;
+// Lazy load to avoid calling getConfig at module load time
+const getNearChainId = () => `near:${getConfig(defaultNetwork).networkId}`;
 const wcMethods = ["near_getAccounts", "near_signTransaction", "near_signTransactions"];
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.burrow.finance";
 const appIcon = process.env.NEXT_PUBLIC_APP_ICON || "https://app.burrow.finance/icon-192.png";
@@ -70,13 +71,13 @@ const walletConnect = setupWalletConnect({
     url: metadataUrl,
     icons: [appIcon],
   },
-  chainId: nearChainId,
+  chainId: getNearChainId(),
   // Fireblocks/HERE-safe methods
   methods: wcMethods,
 } as any);
 
 const myNearWallet = setupMyNearWallet({
-  walletUrl: isTestnet ? "https://testnet.mynearwallet.com" : "https://app.mynearwallet.com",
+  walletUrl: isTestnet() ? "https://testnet.mynearwallet.com" : "https://app.mynearwallet.com",
 });
 
 export const getWalletSelector = async ({ onAccountChange }: GetWalletSelectorArgs) => {
@@ -116,7 +117,7 @@ export const getWalletSelector = async ({ onAccountChange }: GetWalletSelectorAr
       setupLedger(),
     ],
     network: defaultNetwork,
-    debug: !!isTestnet, // Only debug on testnet to avoid SSR issues
+    debug: !!isTestnet(), // Only debug on testnet to avoid SSR issues
     optimizeWalletOrder: false,
   })
     .then((sel) => {
@@ -138,15 +139,15 @@ export const getWalletSelector = async ({ onAccountChange }: GetWalletSelectorAr
   if (typeof window !== 'undefined') {
     const requiredNamespaces = {
       near: {
-        chains: [nearChainId],
+        chains: [getNearChainId()],
         methods: wcMethods,
         events: [],
       },
     };
     console.log("Burrow WalletConnect:", {
       network: defaultNetwork,
-      isTestnet: isTestnet,
-      chainId: nearChainId,
+      isTestnet: isTestnet(),
+      chainId: getNearChainId(),
       methods: wcMethods,
       requiredNamespaces,
       projectId: WALLET_CONNECT_ID,
@@ -180,16 +181,23 @@ export const getWalletSelector = async ({ onAccountChange }: GetWalletSelectorAr
   return selector;
 };
 
+let hasLoggedConnection = false;
+
 export const getNear = () => {
   const config = getConfig(defaultNetwork);
   const keyStore = new BrowserLocalStorageKeyStore();
   if (!near) {
-    console.log(`[NEAR Connection] Establishing connection to nodeUrl:`, config.nodeUrl);
+    if (!hasLoggedConnection) {
+      console.log(`[NEAR Connection] Establishing connection to nodeUrl:`, config.nodeUrl);
+      hasLoggedConnection = true;
+    }
     near = new Near({
       ...config,
       deps: { keyStore },
     });
-    console.log(`[NEAR Connection] Successfully connected to network:`, config.networkId);
+    if (hasLoggedConnection) {
+      console.log(`[NEAR Connection] Successfully connected to network:`, config.networkId);
+    }
   }
   return near;
 };

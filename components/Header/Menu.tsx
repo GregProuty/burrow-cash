@@ -75,7 +75,7 @@ export const HamburgerMenu = ({ anchorEl, setAnchorEl }: Props) => {
   };
 
   const handleToggleTicker = () => {
-    if (isTestnet) return;
+    if (isTestnet()) return;
     toggleTicker();
   };
 
@@ -110,7 +110,7 @@ export const HamburgerMenu = ({ anchorEl, setAnchorEl }: Props) => {
       <StyledMenuItem onClick={handleToggleShowDust}>
         {showDust ? "Hide" : "Show"} Dust
       </StyledMenuItem>
-      {!isTestnet && (
+      {!isTestnet() && (
         <StyledMenuItem onClick={handleToggleTicker}>
           {hasTicker ? "Hide" : "Show"} Ticker
         </StyledMenuItem>

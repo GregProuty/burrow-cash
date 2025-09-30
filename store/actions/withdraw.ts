@@ -15,7 +15,11 @@ import { transformAccount } from "../../transformers/account";
 import { computeWithdrawMaxAmount } from "../../redux/selectors/getWithdrawMaxAmount";
 import getConfig from "../../utils/config";
 
-const { SPECIAL_REGISTRATION_TOKEN_IDS } = getConfig() as any;
+// Lazy load to avoid calling getConfig at module load time
+const getSpecialRegistrationTokenIds = () => {
+  const { SPECIAL_REGISTRATION_TOKEN_IDS } = getConfig() as any;
+  return SPECIAL_REGISTRATION_TOKEN_IDS;
+};
 interface Props {
   tokenId: string;
   extraDecimals: number;
@@ -31,6 +35,11 @@ export async function withdraw({ tokenId, extraDecimals, amount, isMax }: Props)
   const asset = assets[tokenId];
   const { decimals } = asset.metadata;
   const { logicContract, oracleContract } = await getBurrow();
+  
+  if (!oracleContract) {
+    throw new Error("Oracle contract not available. Please ensure wallet is connected and try again.");
+  }
+  
   const tokenContract = await getTokenContract(tokenId);
   const isNEAR = tokenId === nearTokenId;
 
@@ -47,7 +56,7 @@ export async function withdraw({ tokenId, extraDecimals, amount, isMax }: Props)
     !(await isRegistered(account.accountId, tokenContract)) &&
     !NO_STORAGE_DEPOSIT_CONTRACTS.includes(tokenContract.contractId)
   ) {
-    if (SPECIAL_REGISTRATION_TOKEN_IDS.includes(tokenContract.contractId)) {
+    if (getSpecialRegistrationTokenIds().includes(tokenContract.contractId)) {
       const r = await isRegisteredNew(account.accountId, tokenContract);
       if (r) {
         transactions.push({

@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import Decimal from "decimal.js";
-import { useEffect, useState, createContext, useContext } from "react";
+import { useEffect, useState, createContext, useContext, useMemo } from "react";
 import { Modal as MUIModal } from "@mui/material";
 import { twMerge } from "tailwind-merge";
 import { LayoutBox } from "../../components/LayoutContainer/LayoutContainer";
@@ -70,7 +70,11 @@ function TokenDetailView({ tokenRow }: { tokenRow: UIAsset }) {
   const [borrowers_number, set_borrowers_number] = useState<number>();
   const isMobile = isMobileDevice();
   const router = useRouter();
-  const { NATIVE_TOKENS, NEW_TOKENS } = getConfig() as any;
+  // Memoize config to avoid excessive calls
+  const { NATIVE_TOKENS, NEW_TOKENS } = useMemo(() => {
+    const config = getConfig() as any;
+    return { NATIVE_TOKENS: config.NATIVE_TOKENS, NEW_TOKENS: config.NEW_TOKENS };
+  }, []);
   const depositAPY = useAPY({
     baseAPY: tokenRow.supplyApy,
     rewards: tokenRow.depositRewards,
