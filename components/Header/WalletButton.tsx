@@ -87,6 +87,17 @@ const WalletButton = () => {
     }
     if (accountId) return;
     trackConnectWallet();
+    
+    // Ensure modal is initialized
+    if (!window.modal) {
+      console.error('Modal not initialized yet. Waiting for wallet selector...');
+      // Try to initialize if not already done
+      await getBurrow({ fetchData, hideModal, signOut });
+      if (!window.modal) {
+        console.error('Failed to initialize modal');
+        return;
+      }
+    }
     window.modal.show();
   };
 
@@ -361,6 +372,12 @@ export const ConnectWalletButton = ({
     }
     if (accountId) return;
     trackConnectWallet();
+    
+    // Ensure modal is initialized
+    if (!window.modal) {
+      console.error('Modal not initialized yet. Please wait...');
+      return;
+    }
     window.modal.show();
   };
 

@@ -65,6 +65,13 @@ export async function stakeNative({ amount, validatorAddress }: { amount: string
     return result;
   } catch (error) {
     console.error('aloha staking failed:', error);
+    
+    // Check if this is the access key permission error
+    if (error?.message?.includes('Fireblocks access key is limited to Burrow contract')) {
+      // Re-throw with a more user-friendly message
+      throw new Error('Unable to stake: Your Fireblocks wallet is configured with limited permissions that only allow Burrow contract operations. To stake NEAR to validator pools, please contact your Fireblocks administrator to configure a FullAccess key.');
+    }
+    
     throw error;
   }
 }

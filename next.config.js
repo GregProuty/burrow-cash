@@ -8,6 +8,8 @@ module.exports = {
     forceSwcTransforms: true,
     esmExternals: 'loose',
   },
+  // Transpile local monorepo packages
+  transpilePackages: ['proximity-dex-core', 'proximity-wallet-connect'],
   typescript: {
     // !! WARN !!
     // Dangerously allow production builds to successfully complete even if
@@ -42,21 +44,7 @@ module.exports = {
       use: ["@svgr/webpack"],
     });
 
-    if (isServer) {
-      // For server-side rendering, exclude these problematic modules
-      const origExternals = [...config.externals];
-      
-      config.externals = [
-        // Exclude WalletConnect modules completely on the server
-        (context, request, callback) => {
-          if (/@walletconnect\//.test(request)) {
-            return callback(null, "commonjs {}");
-          }
-          callback();
-        },
-        ...origExternals
-      ];
-    }
+    // No special externals needed - let webpack handle everything
 
     // For client-side builds, provide necessary polyfills
     if (!isServer) {

@@ -95,6 +95,141 @@ export const executeMultipleTransactions = async (transactions) => {
       console.log('aloha wallet type:', wallet.id);
       console.log('aloha wallet metadata:', wallet.metadata);
       console.log('aloha transaction details:', JSON.stringify(selectorTransactions, null, 2));
+
+      // === ENHANCED WALLETCONNECT DEBUGGING ===
+      if (wallet.id === 'wallet-connect') {
+        console.log('🔍 ═══ PRE-TRANSACTION WC COMPREHENSIVE DEBUG ═══');
+        
+        // CRITICAL: Check what methods the SESSION actually supports
+        try {
+          const dbRequest = indexedDB.open('WALLET_CONNECT_V2_INDEXED_DB');
+          dbRequest.onsuccess = function(event: any) {
+            const db = event.target.result;
+            const tx = db.transaction(['keyvaluestorage'], 'readonly');
+            const store = tx.objectStore('keyvaluestorage');
+            
+            const sessionRequest = store.get('wc@2:client:0.3:session');
+            sessionRequest.onsuccess = function() {
+              try {
+                const sessions = JSON.parse(sessionRequest.result || '[]');
+                if (sessions.length > 0) {
+                  const session = sessions[0];
+                  const sessionMethods = session.namespaces?.near?.methods || [];
+                  console.log('🎯 ═══ CRITICAL: SESSION ALLOWED METHODS ═══');
+                  console.log('   Methods in this session:', sessionMethods);
+                  console.log('   Has "near_signTransactions"?', sessionMethods.includes('near_signTransactions'));
+                  console.log('   Has "near_signAndSendTransactions"?', sessionMethods.includes('near_signAndSendTransactions'));
+                  
+                  if (!sessionMethods.includes('near_signTransactions')) {
+                    console.error('❌ FOUND THE BUG! "near_signTransactions" is NOT in session methods!');
+                    console.error('   Rhea will try to call this method and it will be REJECTED.');
+                    console.error('   Solution: Clear session and reconnect to get updated methods.');
+                  }
+                }
+              } catch (e) {
+                console.warn('Could not parse session for method check');
+              }
+            };
+          };
+        } catch (e) {
+          console.warn('Could not check session methods');
+        }
+        
+        // Log ALL properties of the wallet object to understand its structure
+        const walletState = wallet as any;
+        console.log('🔍 WALLET OBJECT KEYS:', Object.keys(walletState));
+        console.log('🔍 WALLET OBJECT PROPERTIES:', Object.getOwnPropertyNames(walletState));
+        
+        // Try to find WalletConnect client/connector in various possible locations
+        const possibleConnectorPaths = [
+          'connector',
+          'client',
+          'signClient', 
+          'walletConnectClient',
+          '_client',
+          '_connector',
+          '_signClient',
+          'connection',
+          '_connection'
+        ];
+        
+        console.log('🔍 CHECKING POSSIBLE CONNECTOR LOCATIONS:');
+        possibleConnectorPaths.forEach(path => {
+          const value = walletState[path];
+          if (value) {
+            console.log(`  ✅ Found: ${path}`, {
+              type: typeof value,
+              constructor: value.constructor?.name,
+              keys: Object.keys(value).slice(0, 10), // First 10 keys
+              hasSession: !!value.session,
+              hasConnect: typeof value.connect === 'function',
+              hasRequest: typeof value.request === 'function',
+            });
+          } else {
+            console.log(`  ❌ Missing: ${path}`);
+          }
+        });
+        
+        // Log the entire wallet state (limited depth to avoid console overflow)
+        console.log('🔍 FULL WALLET STATE (shallow):', {
+          id: walletState.id,
+          type: walletState.type,
+          metadata: walletState.metadata,
+          // Check for nested objects
+          hasConnector: !!walletState.connector,
+          hasClient: !!walletState.client,
+          hasSignClient: !!walletState.signClient,
+          hasConnection: !!walletState.connection,
+        });
+        
+        // Transaction analysis
+        console.log('📋 TRANSACTION ANALYSIS:', {
+          transactionCount: selectorTransactions.length,
+          totalSize: JSON.stringify(selectorTransactions).length + ' bytes',
+          transactions: selectorTransactions.map((tx, idx) => ({
+            index: idx,
+            signerId: tx.signerId,
+            receiverId: tx.receiverId,
+            actionCount: tx.actions.length,
+            actions: tx.actions.map(action => ({
+              type: action.type,
+              method: action.params?.methodName,
+              deposit: action.params?.deposit,
+              gas: action.params?.gas,
+              argsSize: JSON.stringify(action.params?.args || {}).length + ' bytes'
+            }))
+          }))
+        });
+        
+        // Check localStorage WC state
+        const wcStorageKeys = Object.keys(localStorage).filter(key => 
+          key.includes('walletconnect') || key.includes('wc_')
+        );
+        console.log('💾 WALLETCONNECT LOCALSTORAGE KEYS:', wcStorageKeys);
+        
+        // Check IndexedDB for pending messages
+        try {
+          const dbRequest = indexedDB.open('WALLET_CONNECT_V2_INDEXED_DB');
+          dbRequest.onsuccess = function(event: any) {
+            const db = event.target.result;
+            const tx = db.transaction(['keyvaluestorage'], 'readonly');
+            const store = tx.objectStore('keyvaluestorage');
+            
+            const messagesRequest = store.get('wc@2:core:0.3:messages');
+            messagesRequest.onsuccess = function() {
+              try {
+                const messages = JSON.parse(messagesRequest.result || '[]');
+                console.log('💬 Pending WC messages before transaction:', messages.length);
+              } catch (e) {
+                console.log('💬 No pending messages');
+              }
+            };
+          };
+        } catch (e) {
+          console.warn('Could not check messages');
+        }
+      }
+      // === END ENHANCED WALLETCONNECT DEBUGGING ===
       
       // Adjust timeout based on wallet type - Fireblocks needs more time
       const isFireblocks = wallet.id === 'wallet-connect';
