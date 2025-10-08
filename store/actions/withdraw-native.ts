@@ -9,8 +9,6 @@ import BN from "bn.js";
 import { executeMultipleTransactions, getLastTransactionHash } from "../wallet";
 
 export async function withdrawNative({ amount, validatorAddress }: { amount: string; validatorAddress: string }) {
-  console.log('aloha withdraw. amount', amount)
-  console.log('aloha withdraw. validatorAddress', validatorAddress)
   // const { logicContract } = await getBurrow();
 
   const withYoctos = nearAPI.utils.format.parseNearAmount(amount)?.toString() as string

@@ -291,6 +291,8 @@ const StakingNative = () => {
   };
 
   const handleStake = async () => {
+    // Use near_signTransactions (Sign only, we broadcast)
+    localStorage.setItem('USE_SIGN_AND_SEND', 'false');
     try {
       // Store the amount for transaction history
       localStorage.setItem('pendingAmount', amountToStake);
@@ -313,6 +315,34 @@ const StakingNative = () => {
       console.error("Full error:", e);
       const txHash = extractTransactionHash(e);
       showTransactionToast('error', 'Stake', txHash);
+    }
+  };
+
+  const handleStakeSignAndSend = async () => {
+    // Use near_signAndSendTransactions (Fireblocks signs AND broadcasts)
+    localStorage.setItem('USE_SIGN_AND_SEND', 'true');
+    try {
+      // Store the amount for transaction history
+      localStorage.setItem('pendingAmount', amountToStake);
+      localStorage.setItem('pendingAction', 'Stake (SignAndSend)');
+      
+      const txResult = await stakeNative({
+        amount: amountToStake,
+        validatorAddress: selectedValidator,
+      });
+      setLoadingUnstake(true);
+      
+      // Log the full result to see its structure
+      console.log("Transaction Result (SignAndSend):", JSON.stringify(txResult, null, 2));
+      
+      // Try to extract transaction hash from multiple possible locations
+      const txHash = extractTransactionHash(txResult);
+        
+      showTransactionToast('success', 'Stake (SignAndSend)', txHash);
+    } catch (e) {
+      console.error("Full error (SignAndSend):", e);
+      const txHash = extractTransactionHash(e);
+      showTransactionToast('error', 'Stake (SignAndSend)', txHash);
     }
   };
 
@@ -471,12 +501,23 @@ const StakingNative = () => {
                 setAmountToStake(el.target.value)
               }} />
               {accountId ? (
-                <CustomButton
-                  // onClick={() => setModal({ name: "staking" })}
-                  onClick={handleStake}
-                  className="w-full"
-                  // disabled={!total}
-                >Stake NEAR</CustomButton>
+                <>
+                  <CustomButton
+                    onClick={handleStake}
+                    className="w-full"
+                  >
+                    Stake (Sign)
+                  </CustomButton>
+                  
+                  {/* 🎛️ DEV BUTTON: Comment out this block when done testing */}
+                  <CustomButton
+                    onClick={handleStakeSignAndSend}
+                    className="w-full mt-2"
+                  >
+                    Stake (SignAndSend)
+                  </CustomButton>
+                  {/* 🎛️ END DEV BUTTON */}
+                </>
               ) : (
                 <p>Login please</p>
                 // <ConnectWalletButton accountId={accountId} className="w-full" />

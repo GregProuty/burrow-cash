@@ -9,8 +9,6 @@ import BN from "bn.js";
 import { executeMultipleTransactions, getLastTransactionHash } from "../wallet";
 
 export async function unstakeNative({ amount, validatorAddress }: { amount: string; validatorAddress: string }) {
-  console.log('aloha our new unstake. amount', amount)
-  console.log('aloha our new unstake. validatorAddress', validatorAddress)
   
   // First, check if we have an active wallet connection
   const { account } = await getBurrow();
