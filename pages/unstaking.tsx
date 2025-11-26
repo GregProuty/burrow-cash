@@ -291,9 +291,6 @@ const StakingNative = () => {
   };
 
   const handleStake = async () => {
-    // 🎯 Use SINGULAR method (proven to work with Fireblocks!)
-    localStorage.setItem('USE_SIGN_AND_SEND', 'false');
-    localStorage.setItem('USE_SINGULAR_METHOD', 'true');
     try {
       // Store the amount for transaction history
       localStorage.setItem('pendingAmount', amountToStake);
@@ -364,10 +361,6 @@ const StakingNative = () => {
       return
     }
 
-    // 🎯 Use SINGULAR method (proven to work with Fireblocks!)
-    localStorage.setItem('USE_SIGN_AND_SEND', 'false');
-    localStorage.setItem('USE_SINGULAR_METHOD', 'true');
-
     try {
       // Store the amount for transaction history
       localStorage.setItem('pendingAmount', amountToUnstake);
@@ -395,10 +388,6 @@ const StakingNative = () => {
   };
 
   const handleWithdraw = async () => {
-    // 🎯 Use SINGULAR method (proven to work with Fireblocks!)
-    localStorage.setItem('USE_SIGN_AND_SEND', 'false');
-    localStorage.setItem('USE_SINGULAR_METHOD', 'true');
-
     try {
       // Store the amount for transaction history
       localStorage.setItem('pendingAmount', amountToWithdraw);
