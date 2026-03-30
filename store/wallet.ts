@@ -79,9 +79,8 @@ export const executeMultipleTransactions = async (transactions) => {
 
 
       
-      // Adjust timeout based on wallet type - Fireblocks needs more time
       const isFireblocks = wallet.id === 'wallet-connect';
-      const timeoutDuration = isFireblocks ? 120000 : 60000; // 2 minutes for Fireblocks, 1 minute for others
+      const timeoutDuration = isFireblocks ? 240000 : 120000; // 4 minutes for Fireblocks (multi-signer approval), 2 minutes for others
       
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => {
